@@ -31,10 +31,15 @@ export function createServer() {
           await db.query('select 1');
           const probeKey = `.readiness/${crypto.randomUUID()}`;
           const probeBytes = Buffer.from('awi-ready');
-          await storage.put(probeKey, probeBytes);
-          const stored = await storage.get(probeKey);
-          await storage.delete(probeKey);
-          if (!Buffer.from(stored).equals(probeBytes)) throw new Error('STORAGE_READINESS_FAILED');
+          let probeWritten = false;
+          try {
+            await storage.put(probeKey, probeBytes);
+            probeWritten = true;
+            const stored = await storage.get(probeKey);
+            if (!Buffer.from(stored).equals(probeBytes)) throw new Error('STORAGE_READINESS_FAILED');
+          } finally {
+            if (probeWritten) await storage.delete(probeKey);
+          }
           if (!(await deps.provider.ready())) throw new Error('MODEL_PROVIDER_NOT_READY');
           res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ status: 'ready', checks: { database: 'ok', storage: 'ok', modelProvider: 'ok' } }));
         } catch {

@@ -20,3 +20,13 @@ test('uploaded text document is stored and extracted without documentText input'
   assert.equal(result.text, 'Project brief');
   assert.equal(storage.objects.has(result.storageKey), true);
 });
+
+
+test('extraction failure removes object so upload cannot leave an orphan',async()=>{
+  const storage=new MemoryStorage();
+  await assert.rejects(()=>uploadProjectDocument({
+    projectId:'p1',filename:'broken.bin',mimeType:'application/octet-stream',
+    bytes:Buffer.from([1,2,3]),storage,extractors:[new PlainTextExtractor()],
+  }),/UNSUPPORTED_DOCUMENT_TYPE/);
+  assert.equal(storage.objects.size,0);
+});

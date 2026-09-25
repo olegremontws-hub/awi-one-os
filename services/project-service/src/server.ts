@@ -8,7 +8,7 @@ import { objectStorageFromEnv } from '../../document-service/src/s3-storage.js';
 import { readMultipartDocument } from './multipart.js';
 import { validateRuntimeEnv } from './env.js';
 import { uploadAndRunVS001 } from './upload-handler.js';
-import { authContextFromHeaders, authorize } from './auth.js';
+import { authContextFromHeaders, authorize, authorizeProjectScope } from './auth.js';
 
 async function readJson(req: http.IncomingMessage) {
   const chunks: Buffer[] = [];
@@ -46,6 +46,8 @@ export function createServer() {
       const isRead = req.method === 'GET';
       const isDecision = /\/decisions\/[^/]+\/(approve|reject)$/.test(path);
       authorize(auth, isDecision ? 'decision:decide' : isRead ? 'project:read' : 'project:write');
+      const scopedProject = path.match(/^\/v1\/projects\/([^/]+)/);
+      if (scopedProject) await authorizeProjectScope(db, auth, scopedProject[1]!);
       const upload = path.match(/^\/v1\/projects\/([^/]+)\/documents$/);
       if (req.method === 'POST' && upload && (req.headers['content-type'] ?? '').startsWith('multipart/form-data')) {
         const file = await readMultipartDocument(req);
@@ -66,7 +68,7 @@ export function createServer() {
         : message === 'DOCUMENT_FILE_REQUIRED' ? 400
         : /^(PDF|XLSX)_EXTRACTION_FAILED$/.test(message) || message === 'XLSX_EXTRACTION_UNAVAILABLE' || message.startsWith('UNSUPPORTED_DOCUMENT_TYPE:') ? 422
         : message === 'AUTHENTICATION_REQUIRED' ? 401
-        : message === 'ACTOR_ID_MISMATCH' || message === 'AUTHORIZATION_REQUIRED' ? 403
+        : message === 'ACTOR_ID_MISMATCH' || message === 'AUTHORIZATION_REQUIRED' || message === 'PROJECT_ACCESS_DENIED' ? 403
         : 500;
       res.writeHead(status, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ error: message }));

@@ -30,6 +30,9 @@ jobs:
         with:
           node-version: 22
       - run: npm install
+      - name: Verify reproducible dependency manifest
+        run: |
+          test -f package-lock.json || { echo 'package-lock.json is required for release reproducibility'; exit 1; }
       - name: Dependency vulnerability gate
         run: npm audit --audit-level=high
       - run: npm run typecheck

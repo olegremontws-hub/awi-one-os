@@ -38,7 +38,7 @@ integration('postgres recovery commits failed status and audit together',async()
   const projectId=crypto.randomUUID(), documentId=crypto.randomUUID(), code='RC-'+projectId.slice(0,8);
   try{
     await pool.query('insert into projects(id,project_code,name,status) values($1,$2,$3,$4)',[projectId,code,'Recovery','intake']);
-    await pool.query("insert into project_documents(id,project_id,filename,storage_key,mime_type,processing_status,created_at) values($1,$2,'stuck.txt','stuck','text/plain','processing',now()-interval '1 hour')",[documentId,projectId]);
+    await pool.query("insert into project_documents(id,project_id,filename,storage_key,mime_type,processing_status,created_at,processing_started_at) values($1,$2,'stuck.txt','stuck','text/plain','processing',now()-interval '1 hour',now()-interval '1 hour')",[documentId,projectId]);
     const count=await recoverStuckProcessing(pool,{olderThanMinutes:15});
     assert.equal(count,1);
     const d=await pool.query('select processing_status,failure_reason from project_documents where id=$1',[documentId]);

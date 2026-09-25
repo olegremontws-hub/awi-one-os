@@ -9,18 +9,25 @@ import { saveProjectDocument } from '../../document-service/src/document-reposit
 import { setDocumentStatus } from '../../document-service/src/document-lifecycle.js';
 import { createHumanGateIfRequired } from './human-gate-create.js';
 import { handleRoundTableIntake } from './round-table-handler.js';
+import { sha256 } from '../../document-service/src/integrity.js';
+import { findDocumentByHash } from './idempotency.js';
 
 export async function uploadAndRunVS001(input: {
   projectId: string; filename: string; mimeType: string; base64: string;
   correlationId: string; provider: ModelProvider; repository: VS001Repository;
   db: GateSqlClient; storage: ObjectStorage;
 }) {
+  const bytes = Buffer.from(input.base64, 'base64');
+  const contentSha256 = sha256(bytes);
+  const duplicate = await findDocumentByHash(input.db, { projectId: input.projectId, contentSha256 });
+  if (duplicate) return { document: duplicate, duplicate: true as const };
+
   const uploaded = await uploadProjectDocument({
     projectId: input.projectId, filename: input.filename, mimeType: input.mimeType,
-    bytes: Buffer.from(input.base64, 'base64'), storage: input.storage,
+    bytes, storage: input.storage,
     extractors: [new PlainTextExtractor(), new PdfTextExtractor(), new XlsxTextExtractor()],
   });
-  await saveProjectDocument(input.db, uploaded);
+  await saveProjectDocument(input.db, { ...uploaded, correlationId: input.correlationId, contentSha256 });
   await setDocumentStatus(input.db, { documentId: uploaded.documentId, projectId: input.projectId, status: 'processing' });
   try {
     const result = await handleRoundTableIntake({

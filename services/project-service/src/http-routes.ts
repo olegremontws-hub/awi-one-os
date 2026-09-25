@@ -7,6 +7,7 @@ import { getProjectHistory } from './project-history.js';
 import type { ObjectStorage } from '../../document-service/src/storage.js';
 import { uploadAndRunVS001 } from './upload-handler.js';
 import { getRoundTableState } from './round-table-query.js';
+import { getProject, changeProjectStatus } from './project-lifecycle.js';
 
 export type HttpDependencies = {
   provider: ModelProvider;
@@ -49,6 +50,22 @@ export async function routeProjectRequest(method: string, path: string, body: Re
       actorId: String(body.actorId ?? ''),
       note: body.note ? String(body.note) : undefined,
       correlationId: String(body.correlationId ?? crypto.randomUUID()),
+    })};
+  }
+
+  const project = path.match(/^\/v1\/projects\/([^/]+)$/);
+  if (method === 'GET' && project) {
+    const found = await getProject(deps.db, project[1]!);
+    return found ? { status: 200, body: found } : { status: 404, body: { error: 'project_not_found' } };
+  }
+
+  const projectStatus = path.match(/^\/v1\/projects\/([^/]+)\/status$/);
+  if (method === 'POST' && projectStatus) {
+    const status = String(body.status ?? '');
+    if (!['intake','active','closed'].includes(status)) return { status: 400, body: { error: 'invalid_project_status' } };
+    return { status: 200, body: await changeProjectStatus(deps.db, {
+      projectId: projectStatus[1]!, status: status as 'intake'|'active'|'closed',
+      actorId: String(body.actorId ?? ''), correlationId: String(body.correlationId ?? crypto.randomUUID()),
     })};
   }
 

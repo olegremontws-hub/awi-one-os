@@ -35,7 +35,8 @@ export function createServer() {
           const stored = await storage.get(probeKey);
           await storage.delete(probeKey);
           if (!Buffer.from(stored).equals(probeBytes)) throw new Error('STORAGE_READINESS_FAILED');
-          res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ status: 'ready', checks: { database: 'ok', storage: 'ok' } }));
+          if (!(await deps.provider.ready())) throw new Error('MODEL_PROVIDER_NOT_READY');
+          res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ status: 'ready', checks: { database: 'ok', storage: 'ok', modelProvider: 'ok' } }));
         } catch {
           res.writeHead(503, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ status: 'not_ready' }));
         }

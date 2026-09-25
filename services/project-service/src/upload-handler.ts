@@ -26,7 +26,12 @@ export async function uploadAndRunVS001(input: {
     bytes, storage: input.storage,
     extractors: [new PlainTextExtractor(), new PdfTextExtractor(), new XlsxTextExtractor()],
   });
-  await saveProjectDocument(input.db, { ...uploaded, correlationId: input.correlationId, contentSha256 });
+  const inserted = await saveProjectDocument(input.db, { ...uploaded, correlationId: input.correlationId, contentSha256 });
+  if (!inserted) {
+    const concurrentDuplicate = await findDocumentByHash(input.db, { projectId: input.projectId, contentSha256 });
+    if (!concurrentDuplicate) throw new Error('DOCUMENT_IDEMPOTENCY_CONFLICT');
+    return { document: concurrentDuplicate, duplicate: true as const };
+  }
   await setDocumentStatus(input.db, { documentId: uploaded.documentId, projectId: input.projectId, status: 'processing' });
   try {
     const result = await handleRoundTableIntake({

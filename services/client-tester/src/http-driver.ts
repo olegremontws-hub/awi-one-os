@@ -21,4 +21,14 @@ export class HttpClientTestDriver implements ClientTestDriver {
   }
   async roundTable(projectId:string){ return json(await fetch(`${this.baseUrl}/v1/projects/${projectId}/round-table`)) as Promise<any>; }
   async history(projectId:string){ return json(await fetch(`${this.baseUrl}/v1/projects/${projectId}/history`)) as Promise<any[]>; }
+  async uploadMalformedPdf(projectId:string){
+    const form=new FormData(); form.append('file',new Blob(['not a pdf'],{type:'application/pdf'}),'broken.pdf');
+    const response=await fetch(`${this.baseUrl}/v1/projects/${projectId}/documents`,{method:'POST',body:form});
+    return {status:response.status,body:await response.json() as any};
+  }
+  async uploadUnsupported(projectId:string){
+    const form=new FormData(); form.append('file',new Blob([new Uint8Array([1,2,3])],{type:'application/octet-stream'}),'payload.bin');
+    const response=await fetch(`${this.baseUrl}/v1/projects/${projectId}/documents`,{method:'POST',body:form});
+    return {status:response.status,body:await response.json() as any};
+  }
 }

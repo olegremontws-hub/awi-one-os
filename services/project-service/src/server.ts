@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { providerFromEnv } from '../../agent-runtime/src/openai-compatible-provider.js';
+import { runtimeProviderFromEnv } from '../../agent-runtime/src/provider-factory.js';
 import { PostgresVS001Repository } from './postgres-vs001-repository.js';
 import { createPostgresPool } from './postgres.js';
 import { routeProjectRequest } from './http-routes.js';
@@ -19,7 +19,7 @@ export function createServer() {
   validateRuntimeEnv();
   const db = createPostgresPool();
   const storage = process.env.AWI_S3_BUCKET ? objectStorageFromEnv() : new LocalObjectStorage();
-  const deps = { provider: providerFromEnv(), repository: new PostgresVS001Repository(db), db, storage };
+  const deps = { provider: runtimeProviderFromEnv(), repository: new PostgresVS001Repository(db), db, storage };
   return http.createServer(async (req, res) => {
     try {
       if (req.method === 'GET' && req.url === '/health') {

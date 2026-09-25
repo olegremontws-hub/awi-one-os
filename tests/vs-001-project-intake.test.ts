@@ -4,7 +4,7 @@ import { registerUploadedDocument } from '../services/document-service/src/intak
 import { handleProjectDocumentUploaded } from '../services/workflow-engine/src/handle-document-uploaded.js';
 import { requiresHumanGate } from '../services/workflow-engine/src/project-intake.js';
 
-test('uploaded project document starts VS-001 and invokes document intelligence', () => {
+test('uploaded project document starts VS-001 and invokes canonical business analyst', () => {
   const { event } = registerUploadedDocument({
     projectId: 'project-1',
     filename: 'brief.pdf',
@@ -16,7 +16,7 @@ test('uploaded project document starts VS-001 and invokes document intelligence'
   const run = handleProjectDocumentUploaded(event);
   assert.equal(run.workflowKey, 'VS-001_PROJECT_INTAKE');
   assert.equal(run.currentStep, 'document_intelligence');
-  assert.equal(run.nextCommand.agentId, 'INTAKE-DOC-001');
+  assert.equal(run.nextCommand.agentId, 'PS-A003');
 });
 
 test('critical risk requires a human gate', () => {

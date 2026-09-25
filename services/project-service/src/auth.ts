@@ -20,3 +20,18 @@ export function requireActorMatch(auth: AuthContext, claimedActorId: unknown) {
   if (claimed && claimed !== auth.actorId) throw new Error('ACTOR_ID_MISMATCH');
   return auth.actorId;
 }
+
+export type ProjectAction = 'project:read' | 'project:write' | 'decision:decide';
+
+const rolePermissions: Record<string, ProjectAction[]> = {
+  'system-test': ['project:read','project:write','decision:decide'],
+  'project-reader': ['project:read'],
+  'project-member': ['project:read','project:write'],
+  'project-approver': ['project:read','decision:decide'],
+  'project-admin': ['project:read','project:write','decision:decide'],
+};
+
+export function authorize(auth: AuthContext, action: ProjectAction) {
+  const allowed = auth.roles.some(role => rolePermissions[role]?.includes(action));
+  if (!allowed) throw new Error('AUTHORIZATION_REQUIRED');
+}

@@ -8,6 +8,7 @@ class MemoryStorage implements ObjectStorage {
   objects = new Map<string, Uint8Array>();
   async put(key:string, bytes:Uint8Array){ this.objects.set(key, bytes); }
   async get(key:string){ const value=this.objects.get(key); if(!value) throw new Error('missing'); return value; }
+  async delete(key:string){ this.objects.delete(key); }
 }
 
 test('uploaded text document is stored and extracted without documentText input', async () => {

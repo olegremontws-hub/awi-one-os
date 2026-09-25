@@ -19,6 +19,12 @@ export class HttpClientTestDriver implements ClientTestDriver {
     form.append('file',new Blob([this.fixtureText],{type:'text/plain'}),'requirements.txt');
     return json(await fetch(`${this.baseUrl}/v1/projects/${projectId}/documents`,{method:'POST',body:form})) as Promise<any>;
   }
+  async uploadDocumentWithCorrelation(projectId:string,correlationId:string){
+    const form=new FormData();
+    form.append('file',new Blob([this.fixtureText],{type:'text/plain'}),'requirements.txt');
+    form.append('correlationId',correlationId);
+    return json(await fetch(`${this.baseUrl}/v1/projects/${projectId}/documents`,{method:'POST',body:form})) as Promise<any>;
+  }
   async roundTable(projectId:string){ return json(await fetch(`${this.baseUrl}/v1/projects/${projectId}/round-table`)) as Promise<any>; }
   async history(projectId:string){ return json(await fetch(`${this.baseUrl}/v1/projects/${projectId}/history`)) as Promise<any[]>; }
   async uploadMalformedPdf(projectId:string){

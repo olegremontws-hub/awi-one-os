@@ -1,0 +1,32 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import pg from 'pg';
+import { changeProjectStatus } from '../services/project-service/src/project-lifecycle.js';
+import { decideHumanGate } from '../services/project-service/src/human-gate-service.js';
+
+const url=process.env.DATABASE_URL;
+const integration=url?test:test.skip;
+
+integration('postgres project status commits status and audit atomically',async()=>{
+  const pool=new pg.Pool({connectionString:url});
+  const projectId=crypto.randomUUID(), code='IT-'+projectId.slice(0,8);
+  try{
+    await pool.query('insert into projects(id,project_code,name,status) values($1,$2,$3,$4)',[projectId,code,'Integration','intake']);
+    await changeProjectStatus(pool,{projectId,status:'active',actorId:'integration-human',correlationId:crypto.randomUUID()});
+    const p=await pool.query('select status from projects where id=$1',[projectId]);
+    const a=await pool.query("select count(*)::int as n from audit_events where project_id=$1 and event_type='PROJECT_STATUS_CHANGED'",[projectId]);
+    assert.equal(p.rows[0].status,'active'); assert.equal(a.rows[0].n,1);
+  }finally{await pool.query('delete from audit_events where project_id=$1',[projectId]);await pool.query('delete from projects where id=$1',[projectId]);await pool.end();}
+});
+
+integration('postgres human gate rolls back decision when gate is missing',async()=>{
+  const pool=new pg.Pool({connectionString:url});
+  const projectId=crypto.randomUUID(), decisionId=crypto.randomUUID(), code='RB-'+projectId.slice(0,8);
+  try{
+    await pool.query('insert into projects(id,project_code,name,status) values($1,$2,$3,$4)',[projectId,code,'Rollback','intake']);
+    await pool.query("insert into decisions(id,project_id,title,summary,gate_level,status) values($1,$2,'T','S','H3','pending')",[decisionId,projectId]);
+    await assert.rejects(()=>decideHumanGate(pool,{projectId,decisionId,action:'approve',actorId:'integration-human',correlationId:crypto.randomUUID()}),/HUMAN_GATE_NOT_PENDING/);
+    const d=await pool.query('select status,decided_by from decisions where id=$1',[decisionId]);
+    assert.equal(d.rows[0].status,'pending'); assert.equal(d.rows[0].decided_by,null);
+  }finally{await pool.query('delete from decisions where id=$1',[decisionId]);await pool.query('delete from projects where id=$1',[projectId]);await pool.end();}
+});

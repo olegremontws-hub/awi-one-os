@@ -8,6 +8,7 @@ import type { ObjectStorage } from '../../document-service/src/storage.js';
 import { uploadAndRunVS001 } from './upload-handler.js';
 import { getRoundTableState } from './round-table-query.js';
 import { getProject, changeProjectStatus } from './project-lifecycle.js';
+import { createDurableProject } from './project-create.js';
 
 export type HttpDependencies = {
   provider: ModelProvider;
@@ -17,6 +18,16 @@ export type HttpDependencies = {
 };
 
 export async function routeProjectRequest(method: string, path: string, body: Record<string, unknown>, deps: HttpDependencies) {
+  if (method === 'POST' && path === '/v1/projects') {
+    try {
+      return { status: 201, body: await createDurableProject(deps.db, {
+        projectCode: String(body.projectCode ?? ''), name: String(body.name ?? ''),
+      })};
+    } catch (error) {
+      return { status: 400, body: { error: error instanceof Error ? error.message : 'invalid_project' } };
+    }
+  }
+
   const upload = path.match(/^\/v1\/projects\/([^/]+)\/documents$/);
   if (method === 'POST' && upload) {
     if (!deps.storage) return { status: 503, body: { error: 'object_storage_not_configured' } };

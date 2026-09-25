@@ -1,5 +1,5 @@
 import type { DocumentSqlClient } from './document-repository.js';
-import { withTransaction, type TransactionalDb } from '../../project-service/src/postgres.js';
+import { withTransaction, type TransactionalDb } from '../../../packages/db/src/transaction.js';
 
 export type DocumentProcessingStatus = 'uploaded'|'processing'|'completed'|'failed';
 

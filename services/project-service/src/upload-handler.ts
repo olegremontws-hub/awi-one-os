@@ -6,6 +6,8 @@ import { PlainTextExtractor } from '../../document-service/src/extract-text.js';
 import { PdfTextExtractor, XlsxTextExtractor } from '../../document-service/src/rich-extractors.js';
 import { uploadProjectDocument } from '../../document-service/src/upload.js';
 import { saveProjectDocument } from '../../document-service/src/document-repository.js';
+import { setDocumentStatus } from '../../document-service/src/document-lifecycle.js';
+import { createHumanGateIfRequired } from './human-gate-create.js';
 import { handleRoundTableIntake } from './round-table-handler.js';
 
 export async function uploadAndRunVS001(input: {
@@ -19,9 +21,17 @@ export async function uploadAndRunVS001(input: {
     extractors: [new PlainTextExtractor(), new PdfTextExtractor(), new XlsxTextExtractor()],
   });
   await saveProjectDocument(input.db, uploaded);
-  const result = await handleRoundTableIntake({
+  await setDocumentStatus(input.db, { documentId: uploaded.documentId, projectId: input.projectId, status: 'processing' });
+  try {
+    const result = await handleRoundTableIntake({
     projectId: input.projectId, documentId: uploaded.documentId, documentText: uploaded.text,
     correlationId: input.correlationId, provider: input.provider, repository: input.repository,
   });
-  return { document: { ...uploaded, text: undefined }, ...result };
+    await createHumanGateIfRequired(input.db, result.decision);
+    await setDocumentStatus(input.db, { documentId: uploaded.documentId, projectId: input.projectId, status: 'completed' });
+    return { document: { ...uploaded, text: undefined }, ...result };
+  } catch (error) {
+    await setDocumentStatus(input.db, { documentId: uploaded.documentId, projectId: input.projectId, status: 'failed', error: error instanceof Error ? error.message : 'unknown_error' });
+    throw error;
+  }
 }

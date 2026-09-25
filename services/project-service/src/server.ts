@@ -38,7 +38,7 @@ export function createServer() {
         const file = await readMultipartDocument(req);
         const result = await uploadAndRunVS001({
           projectId: upload[1]!, filename: file.filename, mimeType: file.mimeType,
-          base64: Buffer.from(file.bytes).toString('base64'),
+          bytes: file.bytes,
           correlationId: file.correlationId ?? crypto.randomUUID(),
           provider: deps.provider, repository: deps.repository, db: deps.db, storage: deps.storage,
         });

@@ -35,7 +35,7 @@ export async function routeProjectRequest(method: string, path: string, body: Re
       projectId: upload[1]!,
       filename: String(body.filename ?? ''),
       mimeType: String(body.mimeType ?? 'application/octet-stream'),
-      base64: String(body.base64 ?? ''),
+      bytes: Buffer.from(String(body.base64 ?? ''), 'base64'),
       correlationId: String(body.correlationId ?? crypto.randomUUID()),
       provider: deps.provider, repository: deps.repository, db: deps.db, storage: deps.storage,
     })};

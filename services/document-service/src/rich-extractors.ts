@@ -7,8 +7,10 @@ export class PdfTextExtractor implements TextExtractor {
     return mimeType === 'application/pdf' || /\.pdf$/i.test(filename);
   }
   async extract(bytes: Uint8Array) {
-    const result = await pdf(Buffer.from(bytes));
-    return result.text;
+    try {
+      const result = await pdf(Buffer.from(bytes));
+      return result.text;
+    } catch { throw new Error('PDF_EXTRACTION_FAILED'); }
   }
 }
 
@@ -17,7 +19,9 @@ export class XlsxTextExtractor implements TextExtractor {
     return /spreadsheetml|excel/i.test(mimeType) || /\.xlsx?$/i.test(filename);
   }
   async extract(bytes: Uint8Array) {
-    const workbook = XLSX.read(Buffer.from(bytes), { type: 'buffer' });
+    let workbook: XLSX.WorkBook;
+    try { workbook = XLSX.read(Buffer.from(bytes), { type: 'buffer' }); }
+    catch { throw new Error('XLSX_EXTRACTION_FAILED'); }
     return workbook.SheetNames.map(name => {
       const sheet = workbook.Sheets[name];
       return `# Sheet: ${name}\n${sheet ? XLSX.utils.sheet_to_csv(sheet) : ''}`;

@@ -3,6 +3,7 @@ export type ModelResponse<T=unknown> = { model: string; output: T; usage?: { inp
 
 export interface ModelProvider {
   generate<T>(request: ModelRequest): Promise<ModelResponse<T>>;
+  ready(): Promise<boolean>;
 }
 
 /**
@@ -10,6 +11,7 @@ export interface ModelProvider {
  * live behind this interface; API keys must come from the deployment secret store.
  */
 export class UnconfiguredModelProvider implements ModelProvider {
+  async ready() { return false; }
   async generate<T>(): Promise<ModelResponse<T>> {
     throw new Error('MODEL_PROVIDER_NOT_CONFIGURED');
   }

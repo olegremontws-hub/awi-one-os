@@ -6,7 +6,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
@@ -32,24 +32,9 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-      - name: Generate and commit canonical dependency lockfile
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          npm install --package-lock-only --ignore-scripts
-          if git ls-files --error-unmatch package-lock.json >/dev/null 2>&1; then
-            npm ci --ignore-scripts
-          else
-            git config user.name github-actions[bot]
-            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-            git add package-lock.json
-            git commit -m "chore(deps): commit canonical npm lockfile"
-            git fetch origin "${GITHUB_HEAD_REF}"
-            git rebase "origin/${GITHUB_HEAD_REF}"
-            git push origin HEAD:${GITHUB_HEAD_REF}
-            echo "Canonical lockfile committed; next CI run will verify npm ci."
-            exit 0
-          fi
+      - name: Verify committed dependency lockfile
+        run: git ls-files --error-unmatch package-lock.json
+      - run: npm ci
       - name: Dependency vulnerability gate
         run: npm audit --audit-level=high
       - run: npm run typecheck

@@ -46,3 +46,30 @@ integration('postgres recovery commits failed status and audit together',async()
     assert.equal(d.rows[0].processing_status,'failed'); assert.equal(d.rows[0].failure_reason,'PROCESSING_TIMEOUT'); assert.equal(a.rows[0].n,1);
   }finally{await pool.query('delete from audit_events where project_id=$1',[projectId]);await pool.query('delete from project_documents where id=$1',[documentId]);await pool.query('delete from projects where id=$1',[projectId]);await pool.end();}
 });
+
+
+for (const gateLevel of ['H2','H3','H4'] as const) {
+  integration(`postgres ${gateLevel} human gate commits decision, gate and audit atomically`, async () => {
+    const pool=new pg.Pool({connectionString:url});
+    const projectId=crypto.randomUUID(), decisionId=crypto.randomUUID(), gateId=crypto.randomUUID(), code=`${gateLevel}-${projectId.slice(0,8)}`;
+    const correlationId=crypto.randomUUID();
+    try {
+      await pool.query('insert into projects(id,project_code,name,status) values($1,$2,$3,$4)',[projectId,code,`Gate ${gateLevel}`,'intake']);
+      await pool.query("insert into decisions(id,project_id,title,summary,gate_level,status) values($1,$2,'T','S',$3,'pending')",[decisionId,projectId,gateLevel]);
+      await pool.query("insert into human_gates(id,project_id,gate_type,status,payload,decision_id,gate_level,reason) values($1,$2,$3,'pending','{}'::jsonb,$4,$3,'integration')",[gateId,projectId,gateLevel,decisionId]);
+      await decideHumanGate(pool,{projectId,decisionId,action:'approve',actorId:'integration-human',correlationId});
+      const d=await pool.query('select gate_level,status,decided_by from decisions where id=$1',[decisionId]);
+      const g=await pool.query('select gate_level,status,decided_by from human_gates where id=$1',[gateId]);
+      const a=await pool.query("select actor_id,correlation_id from audit_events where project_id=$1 and event_type='HUMAN_GATE_APPROVED'",[projectId]);
+      assert.deepEqual(d.rows[0],{gate_level:gateLevel,status:'approved',decided_by:'integration-human'});
+      assert.deepEqual(g.rows[0],{gate_level:gateLevel,status:'approved',decided_by:'integration-human'});
+      assert.equal(a.rows.length,1); assert.equal(a.rows[0].actor_id,'integration-human'); assert.equal(a.rows[0].correlation_id,correlationId);
+    } finally {
+      await pool.query('delete from audit_events where project_id=$1',[projectId]);
+      await pool.query('delete from human_gates where project_id=$1',[projectId]);
+      await pool.query('delete from decisions where project_id=$1',[projectId]);
+      await pool.query('delete from projects where id=$1',[projectId]);
+      await pool.end();
+    }
+  });
+}

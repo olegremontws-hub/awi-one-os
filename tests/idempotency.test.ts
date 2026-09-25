@@ -17,3 +17,13 @@ test('duplicate lookup is project scoped', async () => {
   assert.equal(found?.id, 'd1');
   assert.deepEqual(calls[0], ['p1','abc']);
 });
+
+test('conflict-safe document insert returns no row for concurrent duplicate', async () => {
+  const { saveProjectDocument } = await import('../services/document-service/src/document-repository.js');
+  const db={async query(sql:string){assert.match(sql,/on conflict \(project_id,content_sha256\)/);return {rows:[],rowCount:0};}};
+  const inserted=await saveProjectDocument(db,{
+    documentId:'d2',projectId:'p1',filename:'a.txt',storageKey:'p1/a.txt',mimeType:'text/plain',
+    correlationId:'00000000-0000-0000-0000-000000000001',contentSha256:'abc',
+  });
+  assert.equal(inserted,null);
+});

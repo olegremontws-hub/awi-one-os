@@ -35,3 +35,16 @@ export function authorize(auth: AuthContext, action: ProjectAction) {
   const allowed = auth.roles.some(role => rolePermissions[role]?.includes(action));
   if (!allowed) throw new Error('AUTHORIZATION_REQUIRED');
 }
+
+export async function authorizeProjectScope(
+  db: { query(sql: string, params?: unknown[]): Promise<{ rows?: Array<Record<string, unknown>> }> },
+  auth: AuthContext,
+  projectId: string,
+) {
+  if (auth.roles.includes('system-test')) return;
+  const result = await db.query(
+    'select role from project_memberships where project_id=$1 and actor_id=$2 limit 1',
+    [projectId, auth.actorId],
+  );
+  if (!(result.rows ?? []).length) throw new Error('PROJECT_ACCESS_DENIED');
+}

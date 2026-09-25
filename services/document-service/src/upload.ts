@@ -9,6 +9,12 @@ export async function uploadProjectDocument(input: {
   const documentId = randomUUID();
   const storageKey = `projects/${input.projectId}/documents/${documentId}/${input.filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
   await input.storage.put(storageKey, input.bytes);
-  const text = await extractDocumentText({ bytes: input.bytes, filename: input.filename, mimeType: input.mimeType, extractors: input.extractors });
+  let text: string;
+  try {
+    text = await extractDocumentText({ bytes: input.bytes, filename: input.filename, mimeType: input.mimeType, extractors: input.extractors });
+  } catch (error) {
+    await input.storage.delete(storageKey);
+    throw error;
+  }
   return { documentId, projectId: input.projectId, filename: input.filename, mimeType: input.mimeType, storageKey, text };
 }

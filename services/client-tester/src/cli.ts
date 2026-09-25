@@ -12,8 +12,9 @@ if(report.passed){
   if(unsupported.status!==422 || !String(unsupported.body?.error??'').startsWith('UNSUPPORTED_DOCUMENT_TYPE:')) throw new Error('CLIENT_QA_UNSUPPORTED_DOCUMENT_CONTRACT_FAILED');
   const idempotencyProject=await driver.createProject();
   const correlation=`qa-repeat-${Date.now()}`;
-  const first=await driver.uploadDocumentWithCorrelation(idempotencyProject.id,correlation);
-  const second=await driver.uploadDocumentWithCorrelation(idempotencyProject.id,correlation);
+  const repeatFixture=`Repeated upload fixture ${correlation}`;
+  const first=await driver.uploadDocumentWithCorrelation(idempotencyProject.id,correlation,repeatFixture);
+  const second=await driver.uploadDocumentWithCorrelation(idempotencyProject.id,correlation,repeatFixture);
   if(second?.duplicate!==true) throw new Error('CLIENT_QA_REPEAT_UPLOAD_NOT_IDEMPOTENT');
   const firstId=first?.document?.documentId ?? first?.document?.id;
   const secondId=second?.document?.documentId ?? second?.document?.id;

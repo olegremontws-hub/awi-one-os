@@ -32,6 +32,8 @@ jobs:
       - run: npm install
       - run: npm run typecheck
       - run: npm test
+      - name: Client QA release gate
+        run: npm run test:client
       - run: npm run migrate
       - name: Verify migrated schema
         run: |

@@ -17,7 +17,7 @@ export class XlsxTextExtractor implements TextExtractor {
   supports(mimeType: string, filename: string) {
     return /spreadsheetml|excel/i.test(mimeType) || /\.xlsx?$/i.test(filename);
   }
-  async extract(_bytes: Uint8Array) {
+  async extract(_bytes: Uint8Array, _filename: string): Promise<string> {
     throw new Error('XLSX_EXTRACTION_UNAVAILABLE');
   }
 }

@@ -6,6 +6,7 @@ import { InMemoryVS001Repository } from '../services/project-service/src/in-memo
 import type { RequirementsAnalysis } from '../services/agent-runtime/src/structured-agent.js';
 
 class FakeProvider implements ModelProvider {
+  async ready() { return true; }
   async generate<T>(_request: ModelRequest): Promise<ModelResponse<T>> {
     const output: RequirementsAnalysis = {
       projectSummary: 'Verified project intake',

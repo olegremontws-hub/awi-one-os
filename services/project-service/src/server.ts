@@ -29,7 +29,13 @@ export function createServer() {
       if (req.method === 'GET' && req.url === '/ready') {
         try {
           await db.query('select 1');
-          res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ status: 'ready' }));
+          const probeKey = `.readiness/${crypto.randomUUID()}`;
+          const probeBytes = Buffer.from('awi-ready');
+          await storage.put(probeKey, probeBytes);
+          const stored = await storage.get(probeKey);
+          await storage.delete(probeKey);
+          if (!Buffer.from(stored).equals(probeBytes)) throw new Error('STORAGE_READINESS_FAILED');
+          res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ status: 'ready', checks: { database: 'ok', storage: 'ok' } }));
         } catch {
           res.writeHead(503, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ status: 'not_ready' }));
         }

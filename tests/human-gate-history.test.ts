@@ -6,7 +6,7 @@ import { getProjectHistory } from '../services/project-service/src/project-histo
 class Db {
   calls: Array<{sql:string; params?:unknown[]}> = [];
   rows: Array<Record<string, unknown>> = [];
-  async query(sql:string, params?:unknown[]) { this.calls.push({sql,params}); return { rows: this.rows }; }
+  async query(sql:string, params?:unknown[]) { this.calls.push({sql,params}); return { rows: this.rows, rowCount: sql.startsWith('update ') ? 1 : this.rows.length }; }
 }
 
 test('human approval is transactional and audited', async () => {

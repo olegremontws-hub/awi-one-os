@@ -20,8 +20,8 @@ export function handleProjectDocumentUploaded(event: DocumentUploadedEvent) {
     ...workflow,
     nextCommand: {
       type: 'INVOKE_AGENT',
-      agentId: 'INTAKE-DOC-001',
-      purpose: 'document_intelligence',
+      agentId: 'PS-A003',
+      purpose: 'requirements_analysis',
       projectId: event.projectId,
       documentId: event.payload.documentId,
       correlationId: event.correlationId,

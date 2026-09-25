@@ -10,7 +10,9 @@
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/**/*.test.ts"
+    "test": "tsx --test tests/**/*.test.ts",
+    "start:project-service": "tsx services/project-service/src/server.ts",
+    "migrate": "tsx scripts/migrate.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

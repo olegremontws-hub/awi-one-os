@@ -4,6 +4,9 @@ import { PostgresVS001Repository } from './postgres-vs001-repository.js';
 import { createPostgresPool } from './postgres.js';
 import { routeProjectRequest } from './http-routes.js';
 import { LocalObjectStorage } from '../../document-service/src/storage.js';
+import { objectStorageFromEnv } from '../../document-service/src/s3-storage.js';
+import { readMultipartDocument } from './multipart.js';
+import { uploadAndRunVS001 } from './upload-handler.js';
 
 async function readJson(req: http.IncomingMessage) {
   const chunks: Buffer[] = [];
@@ -13,11 +16,23 @@ async function readJson(req: http.IncomingMessage) {
 
 export function createServer() {
   const db = createPostgresPool();
-  const deps = { provider: providerFromEnv(), repository: new PostgresVS001Repository(db), db, storage: new LocalObjectStorage() };
+  const storage = process.env.AWI_S3_BUCKET ? objectStorageFromEnv() : new LocalObjectStorage();
+  const deps = { provider: providerFromEnv(), repository: new PostgresVS001Repository(db), db, storage };
   return http.createServer(async (req, res) => {
     try {
       if (req.method === 'GET' && req.url === '/health') {
         res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ status: 'ok' }));
+      }
+      const upload = (req.url ?? '').match(/^\/v1\/projects\/([^/]+)\/documents$/);
+      if (req.method === 'POST' && upload && (req.headers['content-type'] ?? '').startsWith('multipart/form-data')) {
+        const file = await readMultipartDocument(req);
+        const result = await uploadAndRunVS001({
+          projectId: upload[1]!, filename: file.filename, mimeType: file.mimeType,
+          base64: Buffer.from(file.bytes).toString('base64'),
+          correlationId: file.correlationId ?? crypto.randomUUID(),
+          provider: deps.provider, repository: deps.repository, db: deps.db, storage: deps.storage,
+        });
+        res.writeHead(201, { 'content-type': 'application/json' }); return res.end(JSON.stringify(result));
       }
       const result = await routeProjectRequest(req.method ?? 'GET', req.url ?? '/', req.method === 'GET' ? {} : await readJson(req), deps);
       res.writeHead(result.status, { 'content-type': 'application/json' }); res.end(JSON.stringify(result.body));

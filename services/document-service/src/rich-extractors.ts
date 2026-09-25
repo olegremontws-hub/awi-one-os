@@ -1,5 +1,4 @@
 import pdf from 'pdf-parse';
-import * as XLSX from 'xlsx';
 import type { TextExtractor } from './extract-text.js';
 
 export class PdfTextExtractor implements TextExtractor {
@@ -18,15 +17,7 @@ export class XlsxTextExtractor implements TextExtractor {
   supports(mimeType: string, filename: string) {
     return /spreadsheetml|excel/i.test(mimeType) || /\.xlsx?$/i.test(filename);
   }
-  async extract(bytes: Uint8Array) {
-    const signature=Buffer.from(bytes.subarray(0,4)).toString('hex');
-    if(signature!=='504b0304' && signature!=='d0cf11e0') throw new Error('XLSX_EXTRACTION_FAILED');
-    let workbook: XLSX.WorkBook;
-    try { workbook = XLSX.read(Buffer.from(bytes), { type: 'buffer' }); }
-    catch { throw new Error('XLSX_EXTRACTION_FAILED'); }
-    return workbook.SheetNames.map(name => {
-      const sheet = workbook.Sheets[name];
-      return `# Sheet: ${name}\n${sheet ? XLSX.utils.sheet_to_csv(sheet) : ''}`;
-    }).join('\n\n');
+  async extract(_bytes: Uint8Array) {
+    throw new Error('XLSX_EXTRACTION_UNAVAILABLE');
   }
 }

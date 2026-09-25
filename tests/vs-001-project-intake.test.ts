@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { registerUploadedDocument } from '../services/document-service/src/intake';
-import { handleProjectDocumentUploaded } from '../services/workflow-engine/src/handle-document-uploaded';
-import { requiresHumanGate } from '../services/workflow-engine/src/project-intake';
+import { registerUploadedDocument } from '../services/document-service/src/intake.js';
+import { handleProjectDocumentUploaded } from '../services/workflow-engine/src/handle-document-uploaded.js';
+import { requiresHumanGate } from '../services/workflow-engine/src/project-intake.js';
 
 test('uploaded project document starts VS-001 and invokes document intelligence', () => {
   const { event } = registerUploadedDocument({

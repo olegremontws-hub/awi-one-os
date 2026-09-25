@@ -8,6 +8,22 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: awi
+          POSTGRES_PASSWORD: awi
+          POSTGRES_DB: awi_one
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U awi -d awi_one"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://awi:awi@localhost:5432/awi_one
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -16,3 +32,12 @@ jobs:
       - run: npm install
       - run: npm run typecheck
       - run: npm test
+      - run: npm run migrate
+      - name: Verify migrated schema
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "select count(*) from schema_migrations;"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "select id, project_code, status from projects limit 0;"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "select id, gate_level, status from decisions limit 0;"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "select id, decision_id, gate_level, status from human_gates limit 0;"
+      - name: Build Docker image
+        run: docker build -t awi-one-os:ci .

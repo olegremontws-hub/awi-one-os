@@ -23,8 +23,8 @@ export class PostgresVS001Repository implements VS001Repository {
         [bundle.memory.memoryId, bundle.memory.projectId, bundle.memory.kind, JSON.stringify(bundle.memory.content), JSON.stringify(bundle.memory.sourceRefs), bundle.memory.version, bundle.memory.createdAt],
       );
       await this.db.query(
-        'insert into audit_events (id, project_id, event_type, actor_type, actor_id, correlation_id, payload, occurred_at) values ($1,$2,$3,$4,$5,$6,$7::jsonb,$8)',
-        [bundle.audit.eventId, bundle.audit.projectId, bundle.audit.eventType, bundle.audit.actorType, bundle.audit.actorId, bundle.audit.correlationId, JSON.stringify({ ...bundle.audit.payload, evidenceRefs: bundle.audit.evidenceRefs }), bundle.audit.occurredAt],
+        'insert into audit_events (id, project_id, event_type, actor_type, actor_id, correlation_id, evidence_refs, payload, occurred_at) values ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9)',
+        [bundle.audit.eventId, bundle.audit.projectId, bundle.audit.eventType, bundle.audit.actorType, bundle.audit.actorId, bundle.audit.correlationId, JSON.stringify(bundle.audit.evidenceRefs), JSON.stringify(bundle.audit.payload), bundle.audit.occurredAt],
       );
       await this.db.query('COMMIT');
     } catch (error) {

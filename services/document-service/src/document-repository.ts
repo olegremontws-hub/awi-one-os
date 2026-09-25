@@ -4,9 +4,10 @@ export interface DocumentSqlClient {
 
 export async function saveProjectDocument(db: DocumentSqlClient, document: {
   documentId: string; projectId: string; filename: string; storageKey: string; mimeType: string;
+  correlationId?: string; contentSha256?: string;
 }) {
   await db.query(
-    'insert into project_documents (id,project_id,filename,storage_key,mime_type,processing_status) values ($1,$2,$3,$4,$5,$6)',
-    [document.documentId, document.projectId, document.filename, document.storageKey, document.mimeType, 'uploaded'],
+    'insert into project_documents (id,project_id,filename,storage_key,mime_type,processing_status,correlation_id,content_sha256) values ($1,$2,$3,$4,$5,$6,$7,$8)',
+    [document.documentId, document.projectId, document.filename, document.storageKey, document.mimeType, 'uploaded', document.correlationId ?? null, document.contentSha256 ?? null],
   );
 }

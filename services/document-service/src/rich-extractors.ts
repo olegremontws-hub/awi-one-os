@@ -19,6 +19,8 @@ export class XlsxTextExtractor implements TextExtractor {
     return /spreadsheetml|excel/i.test(mimeType) || /\.xlsx?$/i.test(filename);
   }
   async extract(bytes: Uint8Array) {
+    const signature=Buffer.from(bytes.subarray(0,4)).toString('hex');
+    if(signature!=='504b0304' && signature!=='d0cf11e0') throw new Error('XLSX_EXTRACTION_FAILED');
     let workbook: XLSX.WorkBook;
     try { workbook = XLSX.read(Buffer.from(bytes), { type: 'buffer' }); }
     catch { throw new Error('XLSX_EXTRACTION_FAILED'); }

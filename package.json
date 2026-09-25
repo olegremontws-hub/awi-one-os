@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/**/*.test.ts",
     "start:project-service": "tsx services/project-service/src/server.ts",
-    "migrate": "tsx scripts/migrate.ts"
+    "migrate": "tsx scripts/migrate.ts",
+    "test:client": "tsx --test tests/client-journey.test.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

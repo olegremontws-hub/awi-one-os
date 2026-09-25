@@ -7,7 +7,6 @@ import { PdfTextExtractor, XlsxTextExtractor } from '../../document-service/src/
 import { uploadProjectDocument } from '../../document-service/src/upload.js';
 import { saveProjectDocument } from '../../document-service/src/document-repository.js';
 import { setDocumentStatus } from '../../document-service/src/document-lifecycle.js';
-import { createHumanGateIfRequired } from './human-gate-create.js';
 import { handleRoundTableIntake } from './round-table-handler.js';
 import { sha256 } from '../../document-service/src/integrity.js';
 import { findDocumentByHash } from './idempotency.js';
@@ -34,7 +33,6 @@ export async function uploadAndRunVS001(input: {
     projectId: input.projectId, documentId: uploaded.documentId, documentText: uploaded.text,
     correlationId: input.correlationId, provider: input.provider, repository: input.repository,
   });
-    await createHumanGateIfRequired(input.db, result.decision);
     await setDocumentStatus(input.db, { documentId: uploaded.documentId, projectId: input.projectId, status: 'completed' });
     return { document: { ...uploaded, text: undefined }, ...result };
   } catch (error) {

@@ -13,7 +13,8 @@
     "test": "tsx --test tests/**/*.test.ts",
     "start:project-service": "tsx services/project-service/src/server.ts",
     "migrate": "tsx scripts/migrate.ts",
-    "test:client": "tsx --test tests/client-journey.test.ts"
+    "test:client": "tsx --test tests/client-journey.test.ts",
+    "qa:client:http": "tsx services/client-tester/src/cli.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

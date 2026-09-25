@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import pg from 'pg';
 import { changeProjectStatus } from '../services/project-service/src/project-lifecycle.js';
 import { decideHumanGate } from '../services/project-service/src/human-gate-service.js';
+import { recoverStuckProcessing } from '../services/document-service/src/recovery.js';
 
 const url=process.env.DATABASE_URL;
 const integration=url?test:test.skip;
@@ -29,4 +30,19 @@ integration('postgres human gate rolls back decision when gate is missing',async
     const d=await pool.query('select status,decided_by from decisions where id=$1',[decisionId]);
     assert.equal(d.rows[0].status,'pending'); assert.equal(d.rows[0].decided_by,null);
   }finally{await pool.query('delete from decisions where id=$1',[decisionId]);await pool.query('delete from projects where id=$1',[projectId]);await pool.end();}
+});
+
+
+integration('postgres recovery commits failed status and audit together',async()=>{
+  const pool=new pg.Pool({connectionString:url});
+  const projectId=crypto.randomUUID(), documentId=crypto.randomUUID(), code='RC-'+projectId.slice(0,8);
+  try{
+    await pool.query('insert into projects(id,project_code,name,status) values($1,$2,$3,$4)',[projectId,code,'Recovery','intake']);
+    await pool.query("insert into project_documents(id,project_id,filename,storage_key,mime_type,processing_status,created_at) values($1,$2,'stuck.txt','stuck','text/plain','processing',now()-interval '1 hour')",[documentId,projectId]);
+    const count=await recoverStuckProcessing(pool,{olderThanMinutes:15});
+    assert.equal(count,1);
+    const d=await pool.query('select processing_status,failure_reason from project_documents where id=$1',[documentId]);
+    const a=await pool.query("select count(*)::int as n from audit_events where project_id=$1 and event_type='DOCUMENT_PROCESSING_RECOVERED'",[projectId]);
+    assert.equal(d.rows[0].processing_status,'failed'); assert.equal(d.rows[0].failure_reason,'PROCESSING_TIMEOUT'); assert.equal(a.rows[0].n,1);
+  }finally{await pool.query('delete from audit_events where project_id=$1',[projectId]);await pool.query('delete from project_documents where id=$1',[documentId]);await pool.query('delete from projects where id=$1',[projectId]);await pool.end();}
 });

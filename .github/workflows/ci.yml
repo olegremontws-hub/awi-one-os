@@ -31,8 +31,8 @@ jobs:
           node-version: 22
       - run: npm install
       - run: npm run typecheck
-      - run: npm test
       - run: npm run migrate
+      - run: npm test
       - name: Verify migrated schema
         run: |
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "select count(*) from schema_migrations;"

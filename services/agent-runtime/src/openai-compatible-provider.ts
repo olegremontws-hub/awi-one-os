@@ -7,6 +7,13 @@ export class OpenAICompatibleProvider implements ModelProvider {
     baseUrl?: string;
   }) {}
 
+  async ready(): Promise<boolean> {
+    const response = await fetch(`${this.config.baseUrl ?? 'https://api.openai.com/v1'}/models/${encodeURIComponent(this.config.model)}`, {
+      headers: { authorization: `Bearer ${this.config.apiKey}` },
+    });
+    return response.ok;
+  }
+
   async generate<T>(request: ModelRequest): Promise<ModelResponse<T>> {
     const response = await fetch(`${this.config.baseUrl ?? 'https://api.openai.com/v1'}/chat/completions`, {
       method: 'POST',

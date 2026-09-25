@@ -41,8 +41,9 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "select id, decision_id, gate_level, status from human_gates limit 0;"
       - name: Start AWI ONE for black-box Client QA
         env:
-          NODE_ENV: test
+          NODE_ENV: ci
           AWI_MODEL_PROVIDER: deterministic-test
+          AWI_ALLOW_TEST_PROVIDER: "true"
           PORT: 3001
         run: |
           npm run start:project-service > /tmp/awi-one.log 2>&1 &

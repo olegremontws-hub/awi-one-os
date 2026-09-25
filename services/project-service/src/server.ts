@@ -8,6 +8,7 @@ import { objectStorageFromEnv } from '../../document-service/src/s3-storage.js';
 import { readMultipartDocument } from './multipart.js';
 import { validateRuntimeEnv } from './env.js';
 import { uploadAndRunVS001 } from './upload-handler.js';
+import { authContextFromHeaders } from './auth.js';
 
 async function readJson(req: http.IncomingMessage) {
   const chunks: Buffer[] = [];
@@ -33,6 +34,7 @@ export function createServer() {
           res.writeHead(503, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ status: 'not_ready' }));
         }
       }
+      const auth = authContextFromHeaders(req.headers);
       const upload = (req.url ?? '').match(/^\/v1\/projects\/([^/]+)\/documents$/);
       if (req.method === 'POST' && upload && (req.headers['content-type'] ?? '').startsWith('multipart/form-data')) {
         const file = await readMultipartDocument(req);
@@ -44,13 +46,16 @@ export function createServer() {
         });
         res.writeHead(201, { 'content-type': 'application/json' }); return res.end(JSON.stringify(result));
       }
-      const result = await routeProjectRequest(req.method ?? 'GET', req.url ?? '/', req.method === 'GET' ? {} : await readJson(req), deps);
+      const body = req.method === 'GET' ? {} : await readJson(req);
+      const result = await routeProjectRequest(req.method ?? 'GET', req.url ?? '/', { ...body, actorId: auth.actorId }, deps);
       res.writeHead(result.status, { 'content-type': 'application/json' }); res.end(JSON.stringify(result.body));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'internal_error';
       const status = message === 'UPLOAD_TOO_LARGE' ? 413
         : message === 'DOCUMENT_FILE_REQUIRED' ? 400
         : /^(PDF|XLSX)_EXTRACTION_FAILED$/.test(message) || message === 'XLSX_EXTRACTION_UNAVAILABLE' || message.startsWith('UNSUPPORTED_DOCUMENT_TYPE:') ? 422
+        : message === 'AUTHENTICATION_REQUIRED' ? 401
+        : message === 'ACTOR_ID_MISMATCH' ? 403
         : 500;
       res.writeHead(status, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ error: message }));

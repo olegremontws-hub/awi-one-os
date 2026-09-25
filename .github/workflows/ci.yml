@@ -44,6 +44,8 @@ jobs:
             git config user.email 41898282+github-actions[bot]@users.noreply.github.com
             git add package-lock.json
             git commit -m "chore(deps): commit canonical npm lockfile"
+            git fetch origin "${GITHUB_HEAD_REF}"
+            git rebase "origin/${GITHUB_HEAD_REF}"
             git push origin HEAD:${GITHUB_HEAD_REF}
             echo "Canonical lockfile committed; next CI run will verify npm ci."
             exit 0

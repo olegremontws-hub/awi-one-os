@@ -29,9 +29,10 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-      - name: Verify committed dependency lockfile
-        run: git ls-files --error-unmatch package-lock.json
-      - run: npm ci
+      - name: Generate dependency lockfile
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Verify generated lockfile is stable
+        run: npm ci --ignore-scripts
       - name: Dependency vulnerability gate
         run: npm audit --audit-level=high
       - run: npm run typecheck

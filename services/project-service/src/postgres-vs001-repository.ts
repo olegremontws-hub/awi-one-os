@@ -16,6 +16,12 @@ export class PostgresVS001Repository implements VS001Repository {
         'insert into decisions (id, project_id, title, summary, gate_level, status, evidence_refs) values ($1,$2,$3,$4,$5,$6,$7::jsonb)',
         [bundle.decision.id, bundle.decision.projectId, bundle.decision.title, bundle.decision.summary, bundle.decision.humanGate.level, bundle.decision.humanGate.status, JSON.stringify(bundle.decision.evidenceRefs)],
       );
+      if (['H2','H3','H4'].includes(bundle.decision.humanGate.level)) {
+        await db.query(
+          'insert into human_gates (id,project_id,decision_id,gate_type,gate_level,status,reason,payload) values (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7::jsonb)',
+          [bundle.decision.projectId,bundle.decision.id,bundle.decision.humanGate.level,bundle.decision.humanGate.level,'pending',bundle.decision.humanGate.reason,JSON.stringify({requestedDecision:bundle.decision.requestedDecision ?? null,evidenceRefs:bundle.decision.evidenceRefs})],
+        );
+      }
       await db.query(
         'insert into memory_records (id, project_id, kind, content, source_refs, version, created_at) values ($1,$2,$3,$4::jsonb,$5::jsonb,$6,$7)',
         [bundle.memory.memoryId, bundle.memory.projectId, bundle.memory.kind, JSON.stringify(bundle.memory.content), JSON.stringify(bundle.memory.sourceRefs), bundle.memory.version, bundle.memory.createdAt],

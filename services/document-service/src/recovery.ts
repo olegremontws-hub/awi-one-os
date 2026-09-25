@@ -8,7 +8,8 @@ export async function recoverStuckProcessing(db:DocumentSqlClient,input:{olderTh
     `update project_documents
        set processing_status='failed',failure_reason='PROCESSING_TIMEOUT'
        where processing_status='processing'
-         and created_at < now() - ($1 * interval '1 minute')
+         and processing_started_at is not null
+         and processing_started_at < now() - ($1 * interval '1 minute')
        returning id,project_id`,
     [minutes],
   ) as {rows?:Array<Record<string,unknown>>};

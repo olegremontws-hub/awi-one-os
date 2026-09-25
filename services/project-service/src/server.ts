@@ -47,8 +47,13 @@ export function createServer() {
       const result = await routeProjectRequest(req.method ?? 'GET', req.url ?? '/', req.method === 'GET' ? {} : await readJson(req), deps);
       res.writeHead(result.status, { 'content-type': 'application/json' }); res.end(JSON.stringify(result.body));
     } catch (error) {
-      res.writeHead(500, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ error: error instanceof Error ? error.message : 'internal_error' }));
+      const message = error instanceof Error ? error.message : 'internal_error';
+      const status = message === 'UPLOAD_TOO_LARGE' ? 413
+        : message === 'DOCUMENT_FILE_REQUIRED' ? 400
+        : /^(PDF|XLSX)_EXTRACTION_FAILED$/.test(message) || message.startsWith('UNSUPPORTED_DOCUMENT_TYPE:') ? 422
+        : 500;
+      res.writeHead(status, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: message }));
     }
   });
 }

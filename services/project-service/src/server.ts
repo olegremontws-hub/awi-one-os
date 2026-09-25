@@ -50,7 +50,7 @@ export function createServer() {
       const message = error instanceof Error ? error.message : 'internal_error';
       const status = message === 'UPLOAD_TOO_LARGE' ? 413
         : message === 'DOCUMENT_FILE_REQUIRED' ? 400
-        : /^(PDF|XLSX)_EXTRACTION_FAILED$/.test(message) || message.startsWith('UNSUPPORTED_DOCUMENT_TYPE:') ? 422
+        : /^(PDF|XLSX)_EXTRACTION_FAILED$/.test(message) || message === 'XLSX_EXTRACTION_UNAVAILABLE' || message.startsWith('UNSUPPORTED_DOCUMENT_TYPE:') ? 422
         : 500;
       res.writeHead(status, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ error: message }));

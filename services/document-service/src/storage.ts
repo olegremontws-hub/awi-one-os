@@ -1,9 +1,10 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 export interface ObjectStorage {
   put(key: string, bytes: Uint8Array): Promise<void>;
   get(key: string): Promise<Uint8Array>;
+  delete(key: string): Promise<void>;
 }
 
 export class LocalObjectStorage implements ObjectStorage {
@@ -14,4 +15,5 @@ export class LocalObjectStorage implements ObjectStorage {
     await writeFile(path, bytes);
   }
   async get(key: string) { return readFile(join(this.root, key)); }
+  async delete(key: string) { await rm(join(this.root, key), { force: true }); }
 }

@@ -12,11 +12,11 @@ import { sha256 } from '../../document-service/src/integrity.js';
 import { findDocumentByHash } from './idempotency.js';
 
 export async function uploadAndRunVS001(input: {
-  projectId: string; filename: string; mimeType: string; base64: string;
+  projectId: string; filename: string; mimeType: string; bytes: Uint8Array;
   correlationId: string; provider: ModelProvider; repository: VS001Repository;
   db: GateSqlClient; storage: ObjectStorage;
 }) {
-  const bytes = Buffer.from(input.base64, 'base64');
+  const bytes = input.bytes;
   const contentSha256 = sha256(bytes);
   const duplicate = await findDocumentByHash(input.db, { projectId: input.projectId, contentSha256 });
   if (duplicate) return { document: duplicate, duplicate: true as const };
@@ -29,6 +29,7 @@ export async function uploadAndRunVS001(input: {
   const inserted = await saveProjectDocument(input.db, { ...uploaded, correlationId: input.correlationId, contentSha256 });
   if (!inserted) {
     const concurrentDuplicate = await findDocumentByHash(input.db, { projectId: input.projectId, contentSha256 });
+    await input.storage.delete(uploaded.storageKey);
     if (!concurrentDuplicate) throw new Error('DOCUMENT_IDEMPOTENCY_CONFLICT');
     return { document: concurrentDuplicate, duplicate: true as const };
   }

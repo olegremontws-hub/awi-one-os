@@ -1,5 +1,5 @@
 import type { DocumentSqlClient } from './document-repository.js';
-import { withTransaction, type TransactionalDb } from '../../project-service/src/postgres.js';
+import { withTransaction, type TransactionalDb } from '../../../packages/db/src/transaction.js';
 
 export async function recoverStuckProcessing(db:DocumentSqlClient,input:{olderThanMinutes?:number}={}){
   const minutes=Math.max(1,input.olderThanMinutes??15);

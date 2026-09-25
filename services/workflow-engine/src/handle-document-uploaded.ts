@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { startProjectIntake } from './project-intake';
+import { startProjectIntake } from './project-intake.js';
 
 type DocumentUploadedEvent = {
   projectId: string;

@@ -8,7 +8,7 @@ export async function setDocumentStatus(db: DocumentSqlClient, input: {
 }) {
   const work = async (client: DocumentSqlClient) => {
   const updated = await client.query(
-    "update project_documents set processing_status=$1,failure_reason=$2 where id=$3 and project_id=$4",
+    "update project_documents set processing_status=$1,failure_reason=$2,processing_started_at=case when $1='processing' then now() else processing_started_at end where id=$3 and project_id=$4",
     [input.status,input.error ?? null,input.documentId,input.projectId],
   ) as { rowCount?: number | null };
   if(updated.rowCount === 0) throw new Error('DOCUMENT_NOT_FOUND');

@@ -11,7 +11,7 @@ if(report.passed){
   const unsupported=await driver.uploadUnsupported(project.id);
   if(unsupported.status!==422 || !String(unsupported.body?.error??'').startsWith('UNSUPPORTED_DOCUMENT_TYPE:')) throw new Error('CLIENT_QA_UNSUPPORTED_DOCUMENT_CONTRACT_FAILED');
   const idempotencyProject=await driver.createProject();
-  const correlation=`qa-repeat-${Date.now()}`;
+  const correlation=crypto.randomUUID();
   const repeatFixture=`Repeated upload fixture ${correlation}`;
   const first=await driver.uploadDocumentWithCorrelation(idempotencyProject.id,correlation,repeatFixture);
   const second=await driver.uploadDocumentWithCorrelation(idempotencyProject.id,correlation,repeatFixture);

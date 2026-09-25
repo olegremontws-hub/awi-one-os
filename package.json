@@ -2,9 +2,15 @@
   "name": "awi-one-os",
   "private": true,
   "version": "0.1.0",
+  "type": "module",
   "workspaces": ["apps/*", "services/*", "packages/*"],
   "scripts": {
-    "dev": "echo 'AWI-ONE-OS development bootstrap'",
-    "test": "echo 'Tests will be wired in VS-001'"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/**/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
   }
 }

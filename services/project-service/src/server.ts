@@ -3,6 +3,7 @@ import { providerFromEnv } from '../../agent-runtime/src/openai-compatible-provi
 import { PostgresVS001Repository } from './postgres-vs001-repository.js';
 import { createPostgresPool } from './postgres.js';
 import { routeProjectRequest } from './http-routes.js';
+import { LocalObjectStorage } from '../../document-service/src/storage.js';
 
 async function readJson(req: http.IncomingMessage) {
   const chunks: Buffer[] = [];
@@ -12,7 +13,7 @@ async function readJson(req: http.IncomingMessage) {
 
 export function createServer() {
   const db = createPostgresPool();
-  const deps = { provider: providerFromEnv(), repository: new PostgresVS001Repository(db), db };
+  const deps = { provider: providerFromEnv(), repository: new PostgresVS001Repository(db), db, storage: new LocalObjectStorage() };
   return http.createServer(async (req, res) => {
     try {
       if (req.method === 'GET' && req.url === '/health') {

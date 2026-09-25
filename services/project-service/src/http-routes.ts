@@ -6,6 +6,7 @@ import { decideHumanGate } from './human-gate-service.js';
 import { getProjectHistory } from './project-history.js';
 import type { ObjectStorage } from '../../document-service/src/storage.js';
 import { uploadAndRunVS001 } from './upload-handler.js';
+import { getRoundTableState } from './round-table-query.js';
 
 export type HttpDependencies = {
   provider: ModelProvider;
@@ -49,6 +50,11 @@ export async function routeProjectRequest(method: string, path: string, body: Re
       note: body.note ? String(body.note) : undefined,
       correlationId: String(body.correlationId ?? crypto.randomUUID()),
     })};
+  }
+
+  const roundTable = path.match(/^\/v1\/projects\/([^/]+)\/round-table$/);
+  if (method === 'GET' && roundTable) {
+    return { status: 200, body: await getRoundTableState(deps.db, roundTable[1]!) };
   }
 
   const history = path.match(/^\/v1\/projects\/([^/]+)\/history$/);

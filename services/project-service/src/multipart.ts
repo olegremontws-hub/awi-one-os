@@ -1,11 +1,11 @@
 import Busboy from 'busboy';
 import type http from 'node:http';
 
-export async function readMultipartDocument(req: http.IncomingMessage): Promise<{
+export async function readMultipartDocument(req: http.IncomingMessage, maxFileBytes = 50 * 1024 * 1024): Promise<{
   filename: string; mimeType: string; bytes: Uint8Array; correlationId?: string;
 }> {
   return new Promise((resolve, reject) => {
-    const parser = Busboy({ headers: req.headers, limits: { files: 1, fileSize: 50 * 1024 * 1024, fields: 10 } });
+    const parser = Busboy({ headers: req.headers, limits: { files: 1, fileSize: maxFileBytes, fields: 10 } });
     const chunks: Buffer[] = [];
     let filename = '';
     let mimeType = 'application/octet-stream';

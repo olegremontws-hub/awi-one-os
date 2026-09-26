@@ -38,9 +38,13 @@ PR #1 was open, Draft, mergeable, and in a clean merge state when this review be
 - [x] Dependency lockfile and audit gates enforced.
 - [x] PostgreSQL, black-box Client QA, and Docker gates passed.
 - [x] PR is Draft with a clean merge state at review baseline.
-- [ ] Review the final PR diff and confirm scope and ownership.
+- [x] Final PR diff reviewed for scope: 95 files across CI/runtime/database/contracts/services/tests/docs; no customer PDF fixture is included.
 - [ ] Obtain explicit human approval before merging to `main`.
 - [ ] Complete separate production security/deployment review before public exposure.
+
+## PR diff review
+
+The final review found the change set aligned with the VS-001 vertical slice and its hardening work. The unusually large commit count reflects iterative CI hardening; release evidence is the final tree plus green CI, not individual intermediate commits. PR remains Draft until explicit human merge approval.
 
 ## Next engineering slice
 

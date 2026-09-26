@@ -16,7 +16,7 @@ The current implementation provides:
 - authentication boundary plus RBAC and project-membership scope checks;
 - readiness checks for PostgreSQL, object storage and the configured model provider;
 - black-box Client QA and Docker build in CI;
-- dependency audit gate for high-severity vulnerabilities.
+- committed npm dependency lockfile enforced with `npm ci`, plus an audit gate for high-severity vulnerabilities.
 
 ## Security model
 
@@ -57,7 +57,7 @@ The pull-request CI performs dependency vulnerability audit, TypeScript checking
 Useful commands:
 
 ```sh
-npm install
+npm ci
 npm run typecheck
 npm run migrate
 npm test
@@ -67,6 +67,6 @@ npm run qa:client:http
 
 ## Known release gaps
 
-This branch is not a production deployment and should not be described as one. Before production exposure it still needs a real identity provider/token verifier, deployment/secret-management configuration, and reproducible dependency locking. XLSX parsing remains intentionally unavailable. The canonical agent registry in this repository is still a VS-001 subset rather than the full organizational registry.
+This branch is not a production deployment and should not be described as one. Before production exposure it still needs a real identity provider/token verifier and deployment/secret-management configuration. XLSX parsing remains intentionally unavailable. The canonical agent registry in this repository is still a VS-001 subset rather than the full organizational registry.
 
 The feature branch remains the hardening path for VS-001; merge to `main` should happen only after final release verification.

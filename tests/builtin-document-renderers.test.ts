@@ -38,7 +38,7 @@ test('built-in PDF renderer emits a valid multi-object PDF with Cyrillic encodin
 });
 
 test('approved render stores bytes and records SHA-256',async()=>{
- let stored=new Uint8Array();
+ let stored:Uint8Array<ArrayBufferLike>=new Uint8Array();
  const artifact=await renderApprovedDocument({draft,version:1,format:'docx',renderer:builtInDocumentRenderer('docx'),storage:{async put(_key,bytes){stored=bytes;}}});
  assert.ok(stored.byteLength>100);
  assert.equal(artifact.sha256?.length,64);

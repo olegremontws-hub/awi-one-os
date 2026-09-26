@@ -4,7 +4,7 @@ export type ClassifiedDocumentType =
  'work_volume_sheet'|'act'|'ks2'|'ks3'|'drawing'|'other';
 export type Classification={type:ClassifiedDocumentType;confidence:number;reasons:string[]};
 const rules:readonly [ClassifiedDocumentType,RegExp][]=[
- ['additional_agreement',/дополнительн\w* соглашен/i],['technical_conditions',/техническ\w* услов/i],
+ ['additional_agreement',/дополнительн\w*\s+соглашен/i],['technical_conditions',/техническ\w* услов/i],
  ['work_volume_sheet',/ведомост\w* (объ[её]м|остат)/i],['commercial_offer',/коммерческ\w* предложен/i],
  ['technical_specification',/техническ\w* задан/i],['working_documentation',/рабочая документац/i],
  ['specification',/спецификац/i],['estimate',/смет/i],['ks2',/кс[- ]?2/i],['ks3',/кс[- ]?3/i],

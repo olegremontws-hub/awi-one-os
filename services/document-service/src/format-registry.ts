@@ -8,7 +8,7 @@ export type FormatDefinition = {
 const cap=(x:Partial<FormatCapability>):FormatCapability=>({accepted:true,parserAvailable:false,ocrAvailable:false,structuredExtraction:false,preview:false,generation:false,validation:false,...x});
 export const FORMAT_REGISTRY: readonly FormatDefinition[] = [
  {id:'pdf',extensions:['pdf'],mimePatterns:[/^application\/pdf$/i],family:'document',capabilities:cap({parserAvailable:true,ocrAvailable:true,preview:true,validation:true})},
- {id:'text',extensions:['txt','md','csv','json','xml','yaml','yml','html','htm'],mimePatterns:[/^text\//i,/json|xml|yaml/i],family:'text',capabilities:cap({parserAvailable:true,structuredExtraction:true,preview:true,validation:true})},
+ {id:'text',extensions:['txt','md','csv','json','xml','yaml','yml','html','htm'],mimePatterns:[/^text\//i,/^application\/(?:json|xml|yaml|x-yaml)(?:;|$)/i,/^[^;]+\/(?:[^;]+\+json|[^;]+\+xml)(?:;|$)/i],family:'text',capabilities:cap({parserAvailable:true,structuredExtraction:true,preview:true,validation:true})},
  {id:'word',extensions:['doc','docx','odt','rtf'],mimePatterns:[/word|officedocument\.wordprocessingml|opendocument\.text|rtf/i],family:'document',capabilities:cap({generation:true,preview:true})},
  {id:'xlsx',extensions:['xlsx','xlsm'],mimePatterns:[/spreadsheetml|macroenabled\.12/i],family:'spreadsheet',capabilities:cap({parserAvailable:true,structuredExtraction:true,preview:true,generation:true,validation:true})},
  {id:'sheet',extensions:['xls','xlsb','ods','tsv'],mimePatterns:[/application\/vnd\.ms-excel|opendocument\.spreadsheet/i],family:'spreadsheet',capabilities:cap({preview:true})},

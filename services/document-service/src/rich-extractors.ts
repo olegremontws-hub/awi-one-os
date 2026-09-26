@@ -9,8 +9,12 @@ export class PdfTextExtractor implements TextExtractor {
   async extract(bytes: Uint8Array) {
     try {
       const result = await pdf(Buffer.from(bytes));
+      if (!result.text.trim()) throw new Error('PDF_OCR_REQUIRED');
       return result.text;
-    } catch { throw new Error('PDF_EXTRACTION_FAILED'); }
+    } catch (error) {
+      if (error instanceof Error && error.message === 'PDF_OCR_REQUIRED') throw error;
+      throw new Error('PDF_EXTRACTION_FAILED');
+    }
   }
 }
 

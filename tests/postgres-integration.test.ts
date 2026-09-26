@@ -5,6 +5,7 @@ import { changeProjectStatus } from '../services/project-service/src/project-lif
 import { decideHumanGate } from '../services/project-service/src/human-gate-service.js';
 import { recoverStuckProcessing } from '../services/document-service/src/recovery.js';
 import { recordFinancialEvent } from '../services/project-service/src/financial-event-service.js';
+import { generateProjectDocument } from '../services/project-service/src/generated-document-service.js';
 
 const url=process.env.DATABASE_URL;
 const integration=url?test:test.skip;
@@ -100,6 +101,55 @@ integration('postgres financial events enforce evidence, ordering and idempotenc
     await pool.query('delete from contract_financial_events where project_id=$1',[projectId]);
     await pool.query('delete from evidence where project_id=$1',[projectId]);
     await pool.query('delete from project_documents where id=$1',[documentId]);
+    await pool.query('delete from projects where id=$1',[projectId]);
+    await pool.end();
+  }
+});
+
+
+integration('postgres generated document flow links Human Gate Evidence artifact version and history',async()=>{
+  const pool=new pg.Pool({connectionString:url});
+  const projectId=crypto.randomUUID(), sourceDocumentId=crypto.randomUUID(), evidenceId=crypto.randomUUID(), gateId=crypto.randomUUID(), code='GD-'+projectId.slice(0,8);
+  const objects=new Map<string,Uint8Array>();
+  const storage={
+    async put(key:string,bytes:Uint8Array){objects.set(key,bytes);},
+    async get(key:string){const value=objects.get(key);if(!value)throw new Error('NOT_FOUND');return value;},
+    async delete(key:string){objects.delete(key);},
+  };
+  try{
+    await pool.query('insert into projects(id,project_code,name,status) values($1,$2,$3,$4)',[projectId,code,'Generated Document','active']);
+    await pool.query("insert into project_documents(id,project_id,filename,storage_key,mime_type,processing_status) values($1,$2,'source.txt','source/source.txt','text/plain','completed')",[sourceDocumentId,projectId]);
+    await pool.query('insert into evidence(id,project_id,document_id,quote) values($1,$2,$3,$4)',[evidenceId,projectId,sourceDocumentId,'synthetic evidence']);
+    await pool.query("insert into human_gates(id,project_id,gate_type,status,payload,gate_level,reason,decided_by,decided_at) values($1,$2,'H3','approved','{}'::jsonb,'H3','synthetic generation approval','integration-human',now())",[gateId,projectId]);
+    const correlationId=crypto.randomUUID();
+    const input={projectId,kind:'contract' as const,format:'docx' as const,humanGateId:gateId,actorId:'integration-human',correlationId,fields:[
+      {key:'contract.number',value:'TEST-1',evidenceIds:[evidenceId]},
+      {key:'parties',value:'Synthetic A / Synthetic B',evidenceIds:[evidenceId]},
+      {key:'subject',value:'Synthetic scope',evidenceIds:[evidenceId]},
+      {key:'amount',value:1000,evidenceIds:[evidenceId]},
+      {key:'currency',value:'RUB',evidenceIds:[evidenceId]},
+    ]};
+    const generated=await generateProjectDocument(pool,storage,input);
+    assert.equal(generated.duplicate,false);
+    assert.ok(generated.storageKey.endsWith('.docx'));
+    assert.ok((await storage.get(generated.storageKey)).byteLength>100);
+    const replay=await generateProjectDocument(pool,storage,input);
+    assert.equal(replay.duplicate,true);
+    const doc=await pool.query('select processing_status,document_kind,current_version from project_documents where id=$1',[generated.documentId]);
+    assert.deepEqual(doc.rows[0],{processing_status:'completed',document_kind:'contract',current_version:1});
+    const version=await pool.query('select version,sha256,extraction_method from document_versions where document_id=$1',[generated.documentId]);
+    assert.equal(version.rows[0].version,1);assert.equal(version.rows[0].sha256.length,64);assert.equal(version.rows[0].extraction_method,'generated');
+    const run=await pool.query('select template_id,render_format,human_gate_id,source_evidence_ids from generated_document_runs where document_id=$1',[generated.documentId]);
+    assert.equal(run.rows[0].template_id,'contract-v1');assert.equal(run.rows[0].render_format,'docx');assert.equal(run.rows[0].human_gate_id,gateId);assert.deepEqual(run.rows[0].source_evidence_ids,[evidenceId]);
+    const audit=await pool.query("select evidence_refs,payload from audit_events where project_id=$1 and event_type='GENERATED_DOCUMENT_RENDERED'",[projectId]);
+    assert.equal(audit.rows.length,1);assert.deepEqual(audit.rows[0].evidence_refs,[evidenceId]);assert.equal(audit.rows[0].payload.documentId,generated.documentId);
+  }finally{
+    await pool.query('delete from audit_events where project_id=$1',[projectId]);
+    await pool.query('delete from generated_document_runs where project_id=$1',[projectId]);
+    await pool.query("delete from document_versions where document_id in (select id from project_documents where project_id=$1)",[projectId]);
+    await pool.query('delete from evidence where project_id=$1',[projectId]);
+    await pool.query('delete from human_gates where project_id=$1',[projectId]);
+    await pool.query('delete from project_documents where project_id=$1',[projectId]);
     await pool.query('delete from projects where id=$1',[projectId]);
     await pool.end();
   }

@@ -8,7 +8,8 @@ import { objectStorageFromEnv } from '../../document-service/src/s3-storage.js';
 import { readMultipartDocument } from './multipart.js';
 import { validateRuntimeEnv } from './env.js';
 import { uploadAndRunVS001 } from './upload-handler.js';
-import { authContextFromHeaders, authorize, authorizeProjectScope, scopedProjectIdFromPath } from './auth.js';
+import { authContextFromRequest, authorize, authorizeProjectScope, scopedProjectIdFromPath } from './auth.js';
+import { jwtVerifierFromEnv } from './jwt-auth.js';
 import { ocrProviderFromEnv } from '../../document-service/src/http-ocr-provider.js';
 import { getProjectRoundTablePage } from './round-table-page.js';
 
@@ -22,6 +23,7 @@ export function createServer() {
   validateRuntimeEnv();
   const db = createPostgresPool();
   const storage = process.env.AWI_S3_BUCKET ? objectStorageFromEnv() : new LocalObjectStorage();
+  const jwtVerifier = jwtVerifierFromEnv();
   const deps = { provider: runtimeProviderFromEnv(), repository: new PostgresVS001Repository(db), db, storage, ocrProvider: ocrProviderFromEnv() };
   return http.createServer(async (req, res) => {
     try {
@@ -50,7 +52,7 @@ export function createServer() {
           res.writeHead(503, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ status: 'not_ready' }));
         }
       }
-      const auth = authContextFromHeaders(req.headers);
+      const auth = await authContextFromRequest(req.headers, process.env, jwtVerifier);
       const path = req.url ?? '/';
       const isRead = req.method === 'GET';
       const isDecision = /\/decisions\/[^/]+\/(approve|reject)$/.test(path);
@@ -82,7 +84,7 @@ export function createServer() {
       const status = message === 'UPLOAD_TOO_LARGE' ? 413
         : message === 'DOCUMENT_FILE_REQUIRED' ? 400
         : /^(PDF|XLSX)_EXTRACTION_FAILED(?::|$)/.test(message) || message === 'PDF_OCR_REQUIRED' || message === 'OCR_PROVIDER_UNAVAILABLE' || message === 'OCR_PROVIDER_NOT_READY' || message === 'OCR_RESULT_INVALID' || message === 'OCR_RESULT_TOO_LARGE' || message === 'OCR_NO_TEXT' || message === 'XLSX_EXTRACTION_UNAVAILABLE' || message.startsWith('UNSUPPORTED_DOCUMENT_TYPE:') ? 422
-        : message === 'AUTHENTICATION_REQUIRED' ? 401
+        : message === 'AUTHENTICATION_REQUIRED' || message.startsWith('JWT_') || message.startsWith('JWKS_') ? 401
         : message === 'ACTOR_ID_MISMATCH' || message === 'AUTHORIZATION_REQUIRED' || message === 'PROJECT_ACCESS_DENIED' ? 403
         : 500;
       res.writeHead(status, { 'content-type': 'application/json' });

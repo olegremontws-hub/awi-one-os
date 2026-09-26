@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: awi
+          POSTGRES_PASSWORD: awi
+          POSTGRES_DB: awi_one
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U awi -d awi_one"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://awi:awi@localhost:5432/awi_one
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Verify committed dependency lockfile
+        run: git ls-files --error-unmatch package-lock.json
+      - run: npm ci
+      - name: Dependency vulnerability gate
+        run: npm audit --audit-level=high
+      - run: npm run typecheck
+      - run: npm run migrate
+      - run: npm test
+      - name: Verify migrated schema
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "select count(*) from schema_migrations;"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "select id, project_code, status from projects limit 0;"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "select id, gate_level, status from decisions limit 0;"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "select id, decision_id, gate_level, status from human_gates limit 0;"
+      - name: Start AWI ONE for black-box Client QA
+        env:
+          NODE_ENV: ci
+          AWI_MODEL_PROVIDER: deterministic-test
+          AWI_ALLOW_TEST_PROVIDER: "true"
+          PORT: 3001
+        run: |
+          npm run start:project-service > /tmp/awi-one.log 2>&1 &
+          echo $! > /tmp/awi-one.pid
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:3001/ready >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/awi-one.log
+          exit 1
+      - name: Client QA black-box release gate
+        env:
+          AWI_TEST_BASE_URL: http://127.0.0.1:3001
+        run: npm run qa:client:http
+      - name: Build Docker image
+        run: docker build -t awi-one-os:ci .

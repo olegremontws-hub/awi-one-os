@@ -1,0 +1,19 @@
+import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+
+export interface ObjectStorage {
+  put(key: string, bytes: Uint8Array): Promise<void>;
+  get(key: string): Promise<Uint8Array>;
+  delete(key: string): Promise<void>;
+}
+
+export class LocalObjectStorage implements ObjectStorage {
+  constructor(private readonly root = process.env.AWI_OBJECT_ROOT ?? '.awi-objects') {}
+  async put(key: string, bytes: Uint8Array) {
+    const path = join(this.root, key);
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, bytes);
+  }
+  async get(key: string) { return readFile(join(this.root, key)); }
+  async delete(key: string) { await rm(join(this.root, key), { force: true }); }
+}

@@ -20,7 +20,7 @@ test('image upload uses configured OCR and persists page Evidence before AI inta
   const repository={async commit(){}};
   const ocrProvider={id:'ocr-test',async ready(){return true},async extract(){return{provider:'ocr-test',pipelineVersion:'1',pages:[{pageNumber:1,text:'Технические условия',confidence:.96}]}}};
   const result=await uploadAndRunVS001({projectId:'p1',filename:'scan.png',mimeType:'image/png',bytes:new Uint8Array([1,2,3]),correlationId:'11111111-1111-4111-8111-111111111111',provider,repository,db,storage,ocrProvider});
-  assert.equal(result.document.documentId.length>0,true);
+  assert.equal(String((result.document as any).documentId).length>0,true);
   assert.match(capturedInput,/Технические условия/);
   assert.equal(queries.some(q=>q.includes('DOCUMENT_OCR_EXTRACTED')),true);
   assert.equal(queries.filter(q=>q.includes('insert into evidence')).length,1);

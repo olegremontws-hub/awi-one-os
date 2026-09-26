@@ -9,12 +9,13 @@ import {builtInDocumentRenderer} from '../../document-service/src/builtin-docume
 import {renderApprovedDocument,type RenderFormat} from '../../document-service/src/document-renderer.js';
 
 export type GeneratedDocumentFieldInput={key:string;value:string|number;evidenceIds:string[]};
+export type GeneratedProjectDocumentResult={documentId:string;filename:string;storageKey:string;mimeType:string;sha256?:string;version:number;duplicate:boolean};
 export type GenerateProjectDocumentInput={
  projectId:string;kind:GeneratedDocumentKind;format:RenderFormat;fields:GeneratedDocumentFieldInput[];
  humanGateId:string;actorId:string;correlationId:string;
 };
 
-export async function generateProjectDocument(db:GateSqlClient,storage:ObjectStorage,input:GenerateProjectDocumentInput){
+export async function generateProjectDocument(db:GateSqlClient,storage:ObjectStorage,input:GenerateProjectDocumentInput):Promise<GeneratedProjectDocumentResult>{
  if(!db.connect)throw new Error('TRANSACTIONAL_DB_REQUIRED');
  if(!input.actorId.trim())throw new Error('ACTOR_ID_REQUIRED');
  if(!input.correlationId.trim())throw new Error('CORRELATION_ID_REQUIRED');
@@ -22,12 +23,17 @@ export async function generateProjectDocument(db:GateSqlClient,storage:ObjectSto
  if(!template.outputFormats.includes(input.format))throw new Error('OUTPUT_FORMAT_NOT_ALLOWED');
 
  const prior=await db.query(
-  `select r.document_id,r.render_format,p.storage_key,p.mime_type
-   from generated_document_runs r join project_documents p on p.id=r.document_id
+  `select r.document_id,p.filename,p.storage_key,p.mime_type,v.sha256,v.version
+   from generated_document_runs r
+   join project_documents p on p.id=r.document_id
+   join document_versions v on v.document_id=p.id and v.version=p.current_version
    where r.project_id=$1 and r.correlation_id=$2 limit 1`,
   [input.projectId,input.correlationId],
  );
- if((prior.rows??[]).length)return{...(prior.rows![0]),duplicate:true};
+ if((prior.rows??[]).length){
+  const row=prior.rows![0]!;
+  return{documentId:String(row.document_id),filename:String(row.filename),storageKey:String(row.storage_key),mimeType:String(row.mime_type),sha256:row.sha256?String(row.sha256):undefined,version:Number(row.version),duplicate:true};
+ }
 
  const gate=await db.query(
   "select id from human_gates where id=$1 and project_id=$2 and status='approved' limit 1",
@@ -87,12 +93,17 @@ export async function generateProjectDocument(db:GateSqlClient,storage:ObjectSto
  }catch(error){
   await storage.delete(artifact.storageKey);
   const duplicate=await db.query(
-   `select r.document_id,r.render_format,p.storage_key,p.mime_type
-    from generated_document_runs r join project_documents p on p.id=r.document_id
+   `select r.document_id,p.filename,p.storage_key,p.mime_type,v.sha256,v.version
+    from generated_document_runs r
+    join project_documents p on p.id=r.document_id
+    join document_versions v on v.document_id=p.id and v.version=p.current_version
     where r.project_id=$1 and r.correlation_id=$2 limit 1`,
    [input.projectId,input.correlationId],
   );
-  if((duplicate.rows??[]).length)return{...(duplicate.rows![0]),duplicate:true};
+  if((duplicate.rows??[]).length){
+   const row=duplicate.rows![0]!;
+   return{documentId:String(row.document_id),filename:String(row.filename),storageKey:String(row.storage_key),mimeType:String(row.mime_type),sha256:row.sha256?String(row.sha256):undefined,version:Number(row.version),duplicate:true};
+  }
   throw error;
  }
  return{documentId,filename,storageKey:artifact.storageKey,mimeType:artifact.contentType,sha256:artifact.sha256,version:1,duplicate:false};

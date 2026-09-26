@@ -4,6 +4,7 @@ import pg from 'pg';
 import { changeProjectStatus } from '../services/project-service/src/project-lifecycle.js';
 import { decideHumanGate } from '../services/project-service/src/human-gate-service.js';
 import { recoverStuckProcessing } from '../services/document-service/src/recovery.js';
+import { recordFinancialEvent } from '../services/project-service/src/financial-event-service.js';
 
 const url=process.env.DATABASE_URL;
 const integration=url?test:test.skip;
@@ -73,3 +74,33 @@ for (const gateLevel of ['H2','H3','H4'] as const) {
     }
   });
 }
+
+
+integration('postgres financial events enforce evidence, ordering and idempotency',async()=>{
+  const pool=new pg.Pool({connectionString:url});
+  const projectId=crypto.randomUUID(), documentId=crypto.randomUUID(), evidenceId=crypto.randomUUID(), code='FN-'+projectId.slice(0,8);
+  try{
+    await pool.query('insert into projects(id,project_code,name,status) values($1,$2,$3,$4)',[projectId,code,'Finance Flow','active']);
+    await pool.query("insert into project_documents(id,project_id,filename,storage_key,mime_type,processing_status) values($1,$2,'act.pdf','finance/act.pdf','application/pdf','completed')",[documentId,projectId]);
+    await pool.query('insert into evidence(id,project_id,document_id,quote) values($1,$2,$3,$4)',[evidenceId,projectId,documentId,'synthetic acceptance evidence']);
+    const base={projectId,currency:'RUB',evidenceIds:[evidenceId],actorId:'integration-human'};
+    const accepted=await recordFinancialEvent(pool,{...base,eventType:'accepted',amount:1000,correlationId:crypto.randomUUID()});
+    const invoiceCorrelation=crypto.randomUUID();
+    const invoiced=await recordFinancialEvent(pool,{...base,eventType:'invoiced',amount:900,correlationId:invoiceCorrelation});
+    const duplicate=await recordFinancialEvent(pool,{...base,eventType:'invoiced',amount:900,correlationId:invoiceCorrelation});
+    const paid=await recordFinancialEvent(pool,{...base,eventType:'paid',amount:800,correlationId:crypto.randomUUID()});
+    assert.equal(accepted.duplicate,false);assert.equal(invoiced.duplicate,false);assert.equal(duplicate.duplicate,true);assert.equal(paid.duplicate,false);
+    await assert.rejects(()=>recordFinancialEvent(pool,{...base,eventType:'paid',amount:200,correlationId:crypto.randomUUID()}),/PAID_EXCEEDS_INVOICED/);
+    const events=await pool.query('select event_type,count(*)::int n from contract_financial_events where project_id=$1 group by event_type order by event_type',[projectId]);
+    assert.deepEqual(events.rows,[{event_type:'accepted',n:1},{event_type:'invoiced',n:1},{event_type:'paid',n:1}]);
+    const audit=await pool.query("select count(*)::int n from audit_events where project_id=$1 and event_type='FINANCIAL_EVENT_RECORDED'",[projectId]);
+    assert.equal(audit.rows[0].n,3);
+  }finally{
+    await pool.query('delete from audit_events where project_id=$1',[projectId]);
+    await pool.query('delete from contract_financial_events where project_id=$1',[projectId]);
+    await pool.query('delete from evidence where project_id=$1',[projectId]);
+    await pool.query('delete from project_documents where id=$1',[documentId]);
+    await pool.query('delete from projects where id=$1',[projectId]);
+    await pool.end();
+  }
+});

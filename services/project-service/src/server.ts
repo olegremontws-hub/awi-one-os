@@ -43,7 +43,9 @@ export function createServer() {
             if (probeWritten) await storage.delete(probeKey);
           }
           if (!(await deps.provider.ready())) throw new Error('MODEL_PROVIDER_NOT_READY');
-          res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ status: 'ready', checks: { database: 'ok', storage: 'ok', modelProvider: 'ok' } }));
+          const ocr = deps.ocrProvider ? (await deps.ocrProvider.ready() ? 'ok' : 'not_ready') : 'disabled';
+          if (ocr === 'not_ready') throw new Error('OCR_PROVIDER_NOT_READY');
+          res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ status: 'ready', checks: { database: 'ok', storage: 'ok', modelProvider: 'ok', ocr } }));
         } catch {
           res.writeHead(503, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ status: 'not_ready' }));
         }

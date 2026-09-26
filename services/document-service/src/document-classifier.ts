@@ -4,9 +4,9 @@ export type ClassifiedDocumentType =
  'work_volume_sheet'|'act'|'ks2'|'ks3'|'drawing'|'other';
 export type Classification={type:ClassifiedDocumentType;confidence:number;reasons:string[]};
 const rules:readonly [ClassifiedDocumentType,RegExp][]=[
- ['additional_agreement',/дополнительн(?:ое|ого|ому|ым|ом|ая|ой|ую|ые|ых|ыми)?\s+соглашен/i],['technical_conditions',/техническ\w* услов/i],
- ['work_volume_sheet',/ведомост\w* (объ[её]м|остат)/i],['commercial_offer',/коммерческ\w* предложен/i],
- ['technical_specification',/техническ\w* задан/i],['working_documentation',/рабочая документац/i],
+ ['additional_agreement',/дополнительн(?:ое|ого|ому|ым|ом|ая|ой|ую|ые|ых|ыми)?\s+соглашен/i],['technical_conditions',/техническ\p{L}*\s+услов/iu],
+ ['work_volume_sheet',/ведомост\p{L}*\s+(объ[её]м|остат)/iu],['commercial_offer',/коммерческ\p{L}*\s+предложен/iu],
+ ['technical_specification',/техническ\p{L}*\s+задан/iu],['working_documentation',/рабочая документац/i],
  ['specification',/спецификац/i],['estimate',/смет/i],['ks2',/кс[- ]?2/i],['ks3',/кс[- ]?3/i],
  ['invoice',/сч[её]т( на оплату)?/i],['contract',/договор/i],['act',/\bакт\b/i]
 ];

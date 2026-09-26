@@ -13,7 +13,7 @@ export async function getProjectEstimatePage(db:GateSqlClient,projectId:string){
   );
   const e=estimateResult.rows?.[0];
   if(!e)return{status:200 as const,body:renderProjectEstimate({projectId,projectName:String(project.name??projectId),rows:[]})};
-  const items=await db.query(
+  const [items,evidenceResult,priceEvidenceResult]=await Promise.all([db.query(
     `select ei.id,ei.work_item_id,wi.code,wi.name,ei.quantity,ei.unit,
       ei.labor_amount,ei.material_amount,ei.equipment_amount,ei.logistics_amount,ei.subcontract_amount,
       ei.overhead_amount,ei.risk_amount,ei.vat_amount,ei.total_amount,ei.price_evidence_ids,ei.evidence_ids
@@ -22,7 +22,9 @@ export async function getProjectEstimatePage(db:GateSqlClient,projectId:string){
      where ei.estimate_id=$1
      order by coalesce(wi.code,''),wi.name,ei.id`,
     [String(e.id)],
-  );
+  ),db.query('select id,document_id from evidence where project_id=$1',[projectId]),db.query('select id,source_document_id,evidence_ids from price_evidence where project_id=$1',[projectId])]);
+  const evidenceDocument=new Map((evidenceResult.rows??[]).map(row=>[String(row.id),String(row.document_id)]));
+  const priceEvidence=new Map((priceEvidenceResult.rows??[]).map(row=>[String(row.id),{sourceDocumentId:row.source_document_id?String(row.source_document_id):undefined,evidenceIds:arr(row.evidence_ids).map(String)}]));
   const rows=(items.rows??[]).map(row=>({
     id:String(row.id),workItemId:String(row.work_item_id),code:row.code?String(row.code):undefined,name:String(row.name??''),
     quantity:Number(row.quantity??0),unit:String(row.unit??''),
@@ -35,6 +37,8 @@ export async function getProjectEstimatePage(db:GateSqlClient,projectId:string){
     risk:row.risk_amount===null||row.risk_amount===undefined?undefined:Number(row.risk_amount),
     vat:row.vat_amount===null||row.vat_amount===undefined?undefined:Number(row.vat_amount),
     total:Number(row.total_amount??0),evidenceCount:arr(row.evidence_ids).length,priceEvidenceCount:arr(row.price_evidence_ids).length,
+    evidenceSources:arr(row.evidence_ids).map(String).flatMap(id=>evidenceDocument.has(id)?[{id,documentId:evidenceDocument.get(id)!}]:[]),
+    priceSources:arr(row.price_evidence_ids).map(String).flatMap(id=>{const price=priceEvidence.get(id);if(!price)return[];const documentId=price.sourceDocumentId??price.evidenceIds.map(evidenceId=>evidenceDocument.get(evidenceId)).find(Boolean);return documentId?[{id,documentId}]:[];}),
   }));
   return{status:200 as const,body:renderProjectEstimate({
     projectId,projectName:String(project.name??projectId),

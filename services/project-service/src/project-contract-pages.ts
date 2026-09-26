@@ -41,12 +41,14 @@ export async function getProjectContractPage(db:GateSqlClient,projectId:string,c
  ]);
  const currency=String(row.currency??'RUB');
  const eventRows=(eventsResult.rows??[]) as Array<Record<string,unknown>>;
+ const evidenceDocument=new Map((evidenceResult.rows??[]).map(e=>[String(e.id),String(e.document_id)]));
+ const links=(value:unknown)=>arr(value).map(String).flatMap(id=>evidenceDocument.has(id)?[{id,documentId:evidenceDocument.get(id)!}]:[]);
  const sum=(type:string)=>eventRows.filter(e=>String(e.event_type)===type&&String(e.currency)===currency).reduce((s,e)=>s+Number(e.amount??0),0);
- const items=(itemsResult.rows??[]).map(i=>({id:String(i.id),code:i.code?String(i.code):undefined,name:String(i.name??''),quantity:i.quantity===null||i.quantity===undefined?undefined:Number(i.quantity),unit:i.unit?String(i.unit):undefined,unitPrice:i.unit_price===null||i.unit_price===undefined?undefined:Number(i.unit_price),amount:i.amount===null||i.amount===undefined?undefined:Number(i.amount),currency:String(i.currency??currency),evidenceCount:arr(i.evidence_ids).length}));
+ const items=(itemsResult.rows??[]).map(i=>({id:String(i.id),code:i.code?String(i.code):undefined,name:String(i.name??''),quantity:i.quantity===null||i.quantity===undefined?undefined:Number(i.quantity),unit:i.unit?String(i.unit):undefined,unitPrice:i.unit_price===null||i.unit_price===undefined?undefined:Number(i.unit_price),amount:i.amount===null||i.amount===undefined?undefined:Number(i.amount),currency:String(i.currency??currency),evidenceCount:arr(i.evidence_ids).length,evidenceLinks:links(i.evidence_ids)}));
  const committed=items.filter(i=>i.currency===currency).reduce((s,i)=>s+(i.amount??0),0);
  const contract={id:String(row.id),number:row.contract_number?String(row.contract_number):undefined,date:asDate(row.contract_date),currency,status:String(row.status??'draft'),version:Number(row.version??1),documentId:row.document_id?String(row.document_id):undefined,committed,changes:sum('approved_change'),accepted:sum('accepted'),invoiced:sum('invoiced'),paid:sum('paid'),obligations:(obligationsResult.rows??[]).length};
- const movements=eventRows.map(e=>({type:String(e.event_type),amount:Number(e.amount??0),currency:String(e.currency??currency),occurredAt:asDate(e.occurred_at)??'',evidenceCount:arr(e.evidence_ids).length}));
- const obligations=(obligationsResult.rows??[]).map(o=>({id:String(o.id),type:String(o.obligation_type),description:String(o.description??''),dueAt:asDate(o.due_at),status:String(o.status??'planned'),evidenceCount:arr(o.evidence_ids).length}));
+ const movements=eventRows.map(e=>({type:String(e.event_type),amount:Number(e.amount??0),currency:String(e.currency??currency),occurredAt:asDate(e.occurred_at)??'',evidenceCount:arr(e.evidence_ids).length,evidenceLinks:links(e.evidence_ids)}));
+ const obligations=(obligationsResult.rows??[]).map(o=>({id:String(o.id),type:String(o.obligation_type),description:String(o.description??''),dueAt:asDate(o.due_at),status:String(o.status??'planned'),evidenceCount:arr(o.evidence_ids).length,evidenceLinks:links(o.evidence_ids)}));
  const evidence=(evidenceResult.rows??[]).map(e=>({id:String(e.id),documentId:String(e.document_id),filename:String(e.filename??''),quote:e.quote?String(e.quote):undefined,location:e.page_number?`стр. ${e.page_number}`:e.sheet_name?`${e.sheet_name}${e.cell_range?' · '+e.cell_range:''}`:'источник'}));
  return{status:200 as const,body:renderContractDetail({projectId,projectName:String(project.name??projectId),contract,items,movements,obligations,evidence})};
 }

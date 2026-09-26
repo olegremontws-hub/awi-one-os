@@ -49,6 +49,7 @@ test('Document analysis page shows source Evidence, linked facts and relations',
   assert.doesNotMatch(page.body,/not this doc/);
   assert.match(page.body,/supersedes/);
   assert.match(page.body,/Human Review/);
+  assert.match(page.body,/id="evidence-e1"/);
 });
 
 test('Document analysis page returns explicit 404 for unknown document',async()=>{

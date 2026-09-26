@@ -18,6 +18,7 @@ import { getProjectContractsPage, getProjectContractPage } from './project-contr
 import { getProjectHistoryPage } from './project-history-page.js';
 import { getProjectDocumentFactoryPage } from './project-document-factory-page.js';
 import { readJsonBody } from './json-body.js';
+import { getProjectDocumentDownload } from './project-document-download.js';
 
 export function createServer() {
   validateRuntimeEnv();
@@ -88,6 +89,12 @@ export function createServer() {
         const page = await getProjectEstimatePage(db, appEstimate[1]!);
         res.writeHead(page.status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
         return res.end(page.body);
+      }
+      const documentDownload = path.match(/^\/v1\/projects\/([^/?#]+)\/documents\/([^/?#]+)\/download\/?$/);
+      if (req.method === 'GET' && documentDownload) {
+        const download = await getProjectDocumentDownload(db, storage, documentDownload[1]!, documentDownload[2]!);
+        res.writeHead(download.status, download.headers);
+        return res.end(download.body);
       }
       const appDocument = path.match(/^\/app\/projects\/([^/?#]+)\/documents\/([^/?#]+)\/?$/);
       if (req.method === 'GET' && appDocument) {

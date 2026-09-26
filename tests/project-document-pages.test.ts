@@ -24,6 +24,8 @@ test('Documents page shows registry counts and links to AI analysis',async()=>{
   assert.match(page.body,/\/app\/projects\/p1\/documents\/d1/);
   assert.match(page.body,/Evidence/);
   assert.match(page.body,/Извлечено фактов/);
+  assert.match(page.body,/id="upload-form"/);
+  assert.match(page.body,/fetch\(`\/v1\/projects\/\$\{projectId\}\/documents`/);
 });
 
 function detailDb(found=true){
@@ -50,6 +52,7 @@ test('Document analysis page shows source Evidence, linked facts and relations',
   assert.match(page.body,/supersedes/);
   assert.match(page.body,/Human Review/);
   assert.match(page.body,/id="evidence-e1"/);
+  assert.match(page.body,/\/v1\/projects\/p1\/documents\/d1\/download/);
 });
 
 test('Document analysis page returns explicit 404 for unknown document',async()=>{

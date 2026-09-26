@@ -14,6 +14,7 @@ import { ocrProviderFromEnv } from '../../document-service/src/http-ocr-provider
 import { getProjectRoundTablePage } from './round-table-page.js';
 import { getProjectDocumentsPage, getProjectDocumentAnalysisPage } from './project-document-pages.js';
 import { getProjectEstimatePage } from './project-estimate-page.js';
+import { getProjectContractsPage, getProjectContractPage } from './project-contract-pages.js';
 
 async function readJson(req: http.IncomingMessage) {
   const chunks: Buffer[] = [];
@@ -61,6 +62,18 @@ export function createServer() {
       authorize(auth, isDecision ? 'decision:decide' : isRead ? 'project:read' : 'project:write');
       const scopedProjectId = scopedProjectIdFromPath(path);
       if (scopedProjectId) await authorizeProjectScope(db, auth, scopedProjectId);
+      const appContract = path.match(/^\/app\/projects\/([^/?#]+)\/contracts\/([^/?#]+)\/?$/);
+      if (req.method === 'GET' && appContract) {
+        const page = await getProjectContractPage(db, appContract[1]!, appContract[2]!);
+        res.writeHead(page.status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+        return res.end(page.body);
+      }
+      const appContracts = path.match(/^\/app\/projects\/([^/?#]+)\/contracts\/?$/);
+      if (req.method === 'GET' && appContracts) {
+        const page = await getProjectContractsPage(db, appContracts[1]!);
+        res.writeHead(page.status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+        return res.end(page.body);
+      }
       const appEstimate = path.match(/^\/app\/projects\/([^/?#]+)\/estimate\/?$/);
       if (req.method === 'GET' && appEstimate) {
         const page = await getProjectEstimatePage(db, appEstimate[1]!);

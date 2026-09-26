@@ -12,6 +12,7 @@ import { authContextFromRequest, authorize, authorizeProjectScope, scopedProject
 import { jwtVerifierFromEnv } from './jwt-auth.js';
 import { ocrProviderFromEnv } from '../../document-service/src/http-ocr-provider.js';
 import { getProjectRoundTablePage } from './round-table-page.js';
+import { getProjectDocumentsPage, getProjectDocumentAnalysisPage } from './project-document-pages.js';
 
 async function readJson(req: http.IncomingMessage) {
   const chunks: Buffer[] = [];
@@ -59,6 +60,18 @@ export function createServer() {
       authorize(auth, isDecision ? 'decision:decide' : isRead ? 'project:read' : 'project:write');
       const scopedProjectId = scopedProjectIdFromPath(path);
       if (scopedProjectId) await authorizeProjectScope(db, auth, scopedProjectId);
+      const appDocument = path.match(/^\/app\/projects\/([^/?#]+)\/documents\/([^/?#]+)\/?$/);
+      if (req.method === 'GET' && appDocument) {
+        const page = await getProjectDocumentAnalysisPage(db, appDocument[1]!, appDocument[2]!);
+        res.writeHead(page.status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+        return res.end(page.body);
+      }
+      const appDocuments = path.match(/^\/app\/projects\/([^/?#]+)\/documents\/?$/);
+      if (req.method === 'GET' && appDocuments) {
+        const page = await getProjectDocumentsPage(db, appDocuments[1]!);
+        res.writeHead(page.status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+        return res.end(page.body);
+      }
       const appProject = path.match(/^\/app\/projects\/([^/?#]+)\/?$/);
       if (req.method === 'GET' && appProject) {
         const page = await getProjectRoundTablePage(db, appProject[1]!);

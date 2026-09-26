@@ -9,6 +9,7 @@ import { readMultipartDocument } from './multipart.js';
 import { validateRuntimeEnv } from './env.js';
 import { uploadAndRunVS001 } from './upload-handler.js';
 import { authContextFromHeaders, authorize, authorizeProjectScope } from './auth.js';
+import { ocrProviderFromEnv } from '../../document-service/src/http-ocr-provider.js';
 import { getProjectRoundTablePage } from './round-table-page.js';
 
 async function readJson(req: http.IncomingMessage) {
@@ -21,7 +22,7 @@ export function createServer() {
   validateRuntimeEnv();
   const db = createPostgresPool();
   const storage = process.env.AWI_S3_BUCKET ? objectStorageFromEnv() : new LocalObjectStorage();
-  const deps = { provider: runtimeProviderFromEnv(), repository: new PostgresVS001Repository(db), db, storage };
+  const deps = { provider: runtimeProviderFromEnv(), repository: new PostgresVS001Repository(db), db, storage, ocrProvider: ocrProviderFromEnv() };
   return http.createServer(async (req, res) => {
     try {
       if (req.method === 'GET' && req.url === '/health') {
@@ -61,7 +62,7 @@ export function createServer() {
           projectId: upload[1]!, filename: file.filename, mimeType: file.mimeType,
           bytes: file.bytes,
           correlationId: file.correlationId ?? crypto.randomUUID(),
-          provider: deps.provider, repository: deps.repository, db: deps.db, storage: deps.storage,
+          provider: deps.provider, repository: deps.repository, db: deps.db, storage: deps.storage, ocrProvider: deps.ocrProvider,
         });
         res.writeHead(201, { 'content-type': 'application/json' }); return res.end(JSON.stringify(result));
       }
@@ -72,7 +73,7 @@ export function createServer() {
       const message = error instanceof Error ? error.message : 'internal_error';
       const status = message === 'UPLOAD_TOO_LARGE' ? 413
         : message === 'DOCUMENT_FILE_REQUIRED' ? 400
-        : /^(PDF|XLSX)_EXTRACTION_FAILED(?::|$)/.test(message) || message === 'PDF_OCR_REQUIRED' || message === 'XLSX_EXTRACTION_UNAVAILABLE' || message.startsWith('UNSUPPORTED_DOCUMENT_TYPE:') ? 422
+        : /^(PDF|XLSX)_EXTRACTION_FAILED(?::|$)/.test(message) || message === 'PDF_OCR_REQUIRED' || message === 'OCR_PROVIDER_UNAVAILABLE' || message === 'OCR_PROVIDER_NOT_READY' || message === 'OCR_RESULT_INVALID' || message === 'OCR_RESULT_TOO_LARGE' || message === 'OCR_NO_TEXT' || message === 'XLSX_EXTRACTION_UNAVAILABLE' || message.startsWith('UNSUPPORTED_DOCUMENT_TYPE:') ? 422
         : message === 'AUTHENTICATION_REQUIRED' ? 401
         : message === 'ACTOR_ID_MISMATCH' || message === 'AUTHORIZATION_REQUIRED' || message === 'PROJECT_ACCESS_DENIED' ? 403
         : 500;

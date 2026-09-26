@@ -9,6 +9,7 @@ import { readMultipartDocument } from './multipart.js';
 import { validateRuntimeEnv } from './env.js';
 import { uploadAndRunVS001 } from './upload-handler.js';
 import { authContextFromHeaders, authorize, authorizeProjectScope } from './auth.js';
+import { getProjectRoundTablePage } from './round-table-page.js';
 
 async function readJson(req: http.IncomingMessage) {
   const chunks: Buffer[] = [];

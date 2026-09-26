@@ -39,7 +39,6 @@ export async function getRoundTableState(db: GateSqlClient, projectId: string) {
   });
 
   return {
-    projectId,
     decisionCards: decisions.rows ?? [],
     pendingHumanActions: gateRows,
     timeline: historyRows,

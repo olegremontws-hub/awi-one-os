@@ -1,3 +1,4 @@
+import {createHash} from 'node:crypto';
 import type {DocumentDraft} from './document-factory.js';
 export type RenderFormat='docx'|'xlsx'|'pdf';
 export type RenderArtifact={documentId:string;version:number;format:RenderFormat;contentType:string;storageKey:string;sha256?:string;status:'PENDING'|'STORED'};
@@ -10,5 +11,6 @@ export async function renderApprovedDocument(input:{draft:DocumentDraft;version:
  const bytes=await input.renderer.render(input.draft);if(bytes.byteLength===0)throw new Error('EMPTY_RENDER_OUTPUT');
  const storageKey=`projects/${input.draft.projectId}/generated/${input.draft.id}/v${input.version}.${input.format}`;
  await input.storage.put(storageKey,bytes);
- return{documentId:input.draft.id,version:input.version,format:input.format,contentType:contentTypes[input.format],storageKey,status:'STORED'};
+ const sha256=createHash('sha256').update(bytes).digest('hex');
+ return{documentId:input.draft.id,version:input.version,format:input.format,contentType:contentTypes[input.format],storageKey,sha256,status:'STORED'};
 }

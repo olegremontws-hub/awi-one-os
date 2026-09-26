@@ -16,7 +16,7 @@ Run `npm run start:project-service` or build the repository Dockerfile.
 
 Health endpoints:
 - `GET /health`: process health
-- `GET /ready`: verifies PostgreSQL connectivity
+- `GET /ready`: verifies PostgreSQL connectivity, object-storage read/write/delete, and configured model-provider readiness
 
 ## VS-001 smoke path
 1. Create/identify a project.
@@ -25,5 +25,7 @@ Health endpoints:
 4. Read `/v1/projects/:projectId/round-table`.
 5. If H2/H3/H4 is pending, approve or reject through the decision endpoint.
 6. Read `/v1/projects/:projectId/history` for the causal audit trail.
+
+Protected API traffic must terminate behind a trusted identity boundary. The current header-based principal seam is not a production IdP/JWT verifier and must not be exposed directly to untrusted public traffic.
 
 Production credentials belong in the hosting platform's secret manager, not Git or application logs.

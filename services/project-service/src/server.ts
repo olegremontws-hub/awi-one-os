@@ -8,7 +8,7 @@ import { objectStorageFromEnv } from '../../document-service/src/s3-storage.js';
 import { readMultipartDocument } from './multipart.js';
 import { validateRuntimeEnv } from './env.js';
 import { uploadAndRunVS001 } from './upload-handler.js';
-import { authContextFromHeaders, authorize, authorizeProjectScope } from './auth.js';
+import { authContextFromHeaders, authorize, authorizeProjectScope, scopedProjectIdFromPath } from './auth.js';
 import { ocrProviderFromEnv } from '../../document-service/src/http-ocr-provider.js';
 import { getProjectRoundTablePage } from './round-table-page.js';
 
@@ -55,8 +55,14 @@ export function createServer() {
       const isRead = req.method === 'GET';
       const isDecision = /\/decisions\/[^/]+\/(approve|reject)$/.test(path);
       authorize(auth, isDecision ? 'decision:decide' : isRead ? 'project:read' : 'project:write');
-      const scopedProject = path.match(/^\/v1\/projects\/([^/]+)/);
-      if (scopedProject) await authorizeProjectScope(db, auth, scopedProject[1]!);
+      const scopedProjectId = scopedProjectIdFromPath(path);
+      if (scopedProjectId) await authorizeProjectScope(db, auth, scopedProjectId);
+      const appProject = path.match(/^\/app\/projects\/([^/?#]+)\/?$/);
+      if (req.method === 'GET' && appProject) {
+        const page = await getProjectRoundTablePage(db, appProject[1]!);
+        res.writeHead(page.status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+        return res.end(page.body);
+      }
       const upload = path.match(/^\/v1\/projects\/([^/]+)\/documents$/);
       if (req.method === 'POST' && upload && (req.headers['content-type'] ?? '').startsWith('multipart/form-data')) {
         const file = await readMultipartDocument(req);

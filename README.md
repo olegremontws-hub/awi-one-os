@@ -28,7 +28,7 @@ The deterministic model provider and synthetic test identity are test/CI mechani
 
 ## Document support
 
-Plain text is supported. PDF extraction is implemented, malformed PDFs fail with a stable extraction error, and CI proves positive extraction from a generated valid PDF containing an embedded text layer. Scanned/image-only PDFs require a separate OCR/Document Intelligence path.
+Plain text is supported. PDF extraction is implemented and malformed PDFs fail with a stable extraction error. Scanned/image-only PDFs require a separate OCR/Document Intelligence path. A positive embedded-text PDF fixture is still required before claiming that path as CI-proven.
 
 XLS/XLSX parsing is deliberately **disabled/fail-closed** as `XLSX_EXTRACTION_UNAVAILABLE`. A previously considered SheetJS dependency was removed because the dependency audit identified high-severity vulnerabilities. Do not re-enable spreadsheet parsing without an audited, maintained parser and hostile-file tests.
 

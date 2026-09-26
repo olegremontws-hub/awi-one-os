@@ -15,6 +15,7 @@ import { getProjectRoundTablePage } from './round-table-page.js';
 import { getProjectDocumentsPage, getProjectDocumentAnalysisPage } from './project-document-pages.js';
 import { getProjectEstimatePage } from './project-estimate-page.js';
 import { getProjectContractsPage, getProjectContractPage } from './project-contract-pages.js';
+import { getProjectHistoryPage } from './project-history-page.js';
 
 async function readJson(req: http.IncomingMessage) {
   const chunks: Buffer[] = [];
@@ -62,6 +63,12 @@ export function createServer() {
       authorize(auth, isDecision ? 'decision:decide' : isRead ? 'project:read' : 'project:write');
       const scopedProjectId = scopedProjectIdFromPath(path);
       if (scopedProjectId) await authorizeProjectScope(db, auth, scopedProjectId);
+      const appHistory = path.match(/^\/app\/projects\/([^/?#]+)\/history\/?$/);
+      if (req.method === 'GET' && appHistory) {
+        const page = await getProjectHistoryPage(db, appHistory[1]!);
+        res.writeHead(page.status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+        return res.end(page.body);
+      }
       const appContract = path.match(/^\/app\/projects\/([^/?#]+)\/contracts\/([^/?#]+)\/?$/);
       if (req.method === 'GET' && appContract) {
         const page = await getProjectContractPage(db, appContract[1]!, appContract[2]!);

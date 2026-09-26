@@ -53,7 +53,7 @@ All project routes remain project-scoped by the existing authorization seam.
 ## Known limitations before production
 
 - No production IdP/JWT verifier yet. The current `x-awi-actor-id` / `x-awi-roles` headers are an integration seam and must not be exposed directly to the public internet.
-- No production OCR provider is wired into the upload path yet. Scanned/image-only PDFs fail closed with `PDF_OCR_REQUIRED`; they are not silently treated as analyzed.
+- A production HTTP OCR bridge is now wired into the upload path and readiness gate. Deployment still requires an actual approved OCR service endpoint and credentials; without configuration, scanned/image-only PDFs fail closed rather than being silently treated as analyzed.
 - Legacy `.xls`, binary CAD/BIM and several accepted specialist formats are currently store-only until an audited parser/export path is added.
 - Built-in DOCX/XLSX/PDF renderers are deterministic MVP renderers, not a substitute for corporate template/layout/signature infrastructure or archival PDF/A validation.
 - Electronic signature, external sending, bank actions and protected third-party actions remain Human/External Actions.

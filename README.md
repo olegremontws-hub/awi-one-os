@@ -32,7 +32,7 @@ Plain text is supported. PDF extraction is implemented and malformed PDFs fail w
 
 XLS/XLSX parsing is deliberately **disabled/fail-closed** as `XLSX_EXTRACTION_UNAVAILABLE`. A previously considered SheetJS dependency was removed because the dependency audit identified high-severity vulnerabilities. Do not re-enable spreadsheet parsing without an audited, maintained parser and hostile-file tests.
 
-Uploads have multipart size enforcement. Extraction failures remove the uploaded object, but a failed extraction that occurs before document-row creation does not yet produce a durable failed-document lifecycle record.
+Uploads have multipart size enforcement. Extraction failures remove the uploaded object and persist the document lifecycle as `failed` with an audit event.
 
 ## Runtime configuration
 

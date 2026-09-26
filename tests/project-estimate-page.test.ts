@@ -21,7 +21,7 @@ test('Estimate Matrix page renders evidence-backed cost rows and totals',async()
   assert.match(page.body,/Монтаж трубопровода/);
   assert.match(page.body,/Колодец/);
   assert.match(page.body,/Price Evidence/);
-  assert.match(page.body,/1 240 470/);
+  assert.match(page.body.replace(/\u00a0/g,' '),/1 240 470/);
   assert.match(page.body,/Human Gate/);
 });
 

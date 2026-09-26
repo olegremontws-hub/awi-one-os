@@ -1,5 +1,6 @@
 import pdf from 'pdf-parse';
 import type { TextExtractor } from './extract-text.js';
+import { parseXlsxText } from './xlsx-text-parser.js';
 
 export class PdfTextExtractor implements TextExtractor {
   supports(mimeType: string, filename: string) {
@@ -15,9 +16,14 @@ export class PdfTextExtractor implements TextExtractor {
 
 export class XlsxTextExtractor implements TextExtractor {
   supports(mimeType: string, filename: string) {
-    return /spreadsheetml|excel/i.test(mimeType) || /\.xlsx?$/i.test(filename);
+    return /spreadsheetml|macroenabled\.12/i.test(mimeType) || /\.(xlsx|xlsm)$/i.test(filename);
   }
-  async extract(_bytes: Uint8Array, _filename: string): Promise<string> {
-    throw new Error('XLSX_EXTRACTION_UNAVAILABLE');
+  async extract(bytes: Uint8Array, _filename: string): Promise<string> {
+    try { return parseXlsxText(bytes); }
+    catch (error) {
+      const message=error instanceof Error?error.message:'unknown';
+      if(message.startsWith('ZIP_')||message==='XLSX_NO_READABLE_CELLS') throw new Error(`XLSX_EXTRACTION_FAILED:${message}`);
+      throw new Error('XLSX_EXTRACTION_FAILED');
+    }
   }
 }

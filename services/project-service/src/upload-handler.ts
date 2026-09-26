@@ -10,11 +10,15 @@ import { setDocumentStatus } from '../../document-service/src/document-lifecycle
 import { handleRoundTableIntake } from './round-table-handler.js';
 import { sha256 } from '../../document-service/src/integrity.js';
 import { findDocumentByHash } from './idempotency.js';
+import type { OcrProvider } from '../../document-service/src/ingestion-gateway.js';
+import { DocumentIngestionGateway } from '../../document-service/src/ingestion-gateway.js';
+import { detectFormat, routeFormat } from '../../document-service/src/format-registry.js';
+import { persistOcrEvidence } from './ocr-evidence.js';
 
 export async function uploadAndRunVS001(input: {
   projectId: string; filename: string; mimeType: string; bytes: Uint8Array;
   correlationId: string; provider: ModelProvider; repository: VS001Repository;
-  db: GateSqlClient; storage: ObjectStorage;
+  db: GateSqlClient; storage: ObjectStorage; ocrProvider?: OcrProvider;
 }) {
   const bytes = input.bytes;
   const contentSha256 = sha256(bytes);
@@ -37,10 +41,31 @@ export async function uploadAndRunVS001(input: {
   }
   let text: string;
   try {
-    text = await extractDocumentText({
-      bytes, filename: input.filename, mimeType: input.mimeType,
-      extractors: [new PlainTextExtractor(), new PdfTextExtractor(), new XlsxTextExtractor()],
-    });
+    try {
+      text = await extractDocumentText({
+        bytes, filename: input.filename, mimeType: input.mimeType,
+        extractors: [new PlainTextExtractor(), new PdfTextExtractor(), new XlsxTextExtractor()],
+      });
+    } catch (error) {
+      const message=error instanceof Error?error.message:'unknown_error';
+      const format=detectFormat(input.filename,input.mimeType);
+      const ocrCapable=Boolean(format && routeFormat(format,{hasUsableText:false})==='ocr');
+      const needsOcr=message==='PDF_OCR_REQUIRED'||(message.startsWith('UNSUPPORTED_DOCUMENT_TYPE:')&&ocrCapable);
+      if(!needsOcr)throw error;
+      if(!input.ocrProvider){
+        if(message==='PDF_OCR_REQUIRED')throw error;
+        throw new Error('OCR_PROVIDER_UNAVAILABLE');
+      }
+      const gateway=new DocumentIngestionGateway(input.ocrProvider,[]);
+      const result=await gateway.execute('ocr',format!,{bytes,filename:input.filename,mimeType:input.mimeType});
+      if(!result.ocr)throw new Error('OCR_RESULT_INVALID');
+      const pages=[...result.ocr.pages].sort((a,b)=>a.pageNumber-b.pageNumber);
+      text=pages.map(p=>p.text).join('\n\f\n');
+      if(!text.trim())throw new Error('OCR_NO_TEXT');
+      await persistOcrEvidence(input.db,{
+        projectId:input.projectId,documentId,storageKey,contentSha256,correlationId:input.correlationId,ocr:result.ocr,
+      });
+    }
   } catch (error) {
     await input.storage.delete(storageKey);
     await setDocumentStatus(input.db, {

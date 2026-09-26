@@ -48,7 +48,7 @@ export class JwtRs256Verifier{
   let publicKey;
   try{publicKey=createPublicKey({key:jwk as any,format:'jwk'});}
   catch{throw new Error('JWKS_INVALID');}
-  const ok=verifySignature('RSA-SHA256',Buffer.from(parts[0]+'."+parts[1]+"','utf8'),publicKey,Buffer.from(parts[2]!,'base64url'));
+  const ok=verifySignature('RSA-SHA256',Buffer.from(parts[0]+'.'+parts[1],'utf8'),publicKey,Buffer.from(parts[2]!,'base64url'));
   if(!ok)throw new Error('JWT_SIGNATURE_INVALID');
   const now=Math.floor(Date.now()/1000),skew=this.config.clockSkewSeconds??60;
   if(payload.iss!==this.config.issuer)throw new Error('JWT_ISSUER_INVALID');

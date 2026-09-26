@@ -1,0 +1,7 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {detectFormat,routeFormat} from '../services/document-service/src/format-registry.js';
+import {DocumentIngestionGateway,type OcrProvider} from '../services/document-service/src/ingestion-gateway.js';
+test('registry distinguishes acceptance from analysis capability',()=>{const f=detectFormat('model.rvt','application/octet-stream')!;assert.equal(f.capabilities.accepted,true);assert.equal(f.capabilities.parserAvailable,false);assert.equal(routeFormat(f),'store_only');});
+test('scanned PDF routes to OCR',()=>{const f=detectFormat('scan.pdf','application/pdf')!;assert.equal(routeFormat(f,{hasUsableText:false}),'ocr');});
+test('OCR gateway preserves page confidence',async()=>{const ocr:OcrProvider={id:'test',async ready(){return true},async extract(){return {provider:'test',pipelineVersion:'1',pages:[{pageNumber:1,text:'synthetic contract',confidence:.91}]}}};const f=detectFormat('scan.pdf','application/pdf')!;const r=await new DocumentIngestionGateway(ocr,[]).execute('ocr',f,{bytes:new Uint8Array(),filename:'scan.pdf',mimeType:'application/pdf'});assert.equal(r.ocr?.pages[0].confidence,.91);});
+test('missing OCR provider fails closed',async()=>{const f=detectFormat('scan.tiff','image/tiff')!;await assert.rejects(()=>new DocumentIngestionGateway(undefined,[]).execute('ocr',f,{bytes:new Uint8Array(),filename:'scan.tiff',mimeType:'image/tiff'}),/OCR_PROVIDER_UNAVAILABLE/);});

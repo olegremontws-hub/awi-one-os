@@ -48,3 +48,7 @@ export async function authorizeProjectScope(
   );
   if (!(result.rows ?? []).length) throw new Error('PROJECT_ACCESS_DENIED');
 }
+
+export function scopedProjectIdFromPath(path:string){
+  return path.match(/^\/(?:v1|app)\/projects\/([^/?#]+)/)?.[1];
+}

@@ -94,5 +94,36 @@ export async function routeProjectRequest(method: string, path: string, body: Re
     return { status: 200, body: await getProjectHistory(deps.db, history[1]!) };
   }
 
+  const financialEvent = path.match(/^\/v1\/projects\/([^/]+)\/financial-events$/);
+  if (method === 'POST' && financialEvent) {
+    return { status: 201, body: await recordFinancialEvent(deps.db, {
+      projectId: financialEvent[1]!,
+      eventType: String(body.eventType ?? '') as FinancialEventType,
+      amount: Number(body.amount),
+      currency: String(body.currency ?? ''),
+      evidenceIds: Array.isArray(body.evidenceIds) ? body.evidenceIds.map(String) : [],
+      actorId: String(body.actorId ?? ''),
+      correlationId: String(body.correlationId ?? crypto.randomUUID()),
+      humanGateId: body.humanGateId ? String(body.humanGateId) : undefined,
+      contractId: body.contractId ? String(body.contractId) : undefined,
+      contractItemId: body.contractItemId ? String(body.contractItemId) : undefined,
+      sourceDocumentId: body.sourceDocumentId ? String(body.sourceDocumentId) : undefined,
+    }) };
+  }
+
+  const generatedDocument = path.match(/^\/v1\/projects\/([^/]+)\/generated-documents$/);
+  if (method === 'POST' && generatedDocument) {
+    if (!deps.storage) return { status: 503, body: { error: 'object_storage_not_configured' } };
+    const fields = Array.isArray(body.fields) ? body.fields.map(field => {
+      const item = field as Record<string, unknown>;
+      return { key: String(item.key ?? ''), value: typeof item.value === 'number' ? item.value : String(item.value ?? ''), evidenceIds: Array.isArray(item.evidenceIds) ? item.evidenceIds.map(String) : [] } satisfies GeneratedDocumentFieldInput;
+    }) : [];
+    return { status: 201, body: await generateProjectDocument(deps.db, deps.storage, {
+      projectId: generatedDocument[1]!, kind: String(body.kind ?? '') as Parameters<typeof generateProjectDocument>[2]['kind'],
+      format: String(body.format ?? '') as Parameters<typeof generateProjectDocument>[2]['format'], fields,
+      humanGateId: String(body.humanGateId ?? ''), actorId: String(body.actorId ?? ''), correlationId: String(body.correlationId ?? crypto.randomUUID()),
+    })};
+  }
+
   return { status: 404, body: { error: 'not_found' } };
 }

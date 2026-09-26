@@ -12,3 +12,4 @@ const templates:TemplateDefinition[]=[
  {id:'ks3-v1',kind:'ks3',version:1,requiredFields:['contract','period','total'],outputFormats:['xlsx','pdf']}
 ];
 export function getTemplate(kind:GeneratedDocumentKind){return templates.find(t=>t.kind===kind);}
+export function listTemplates():readonly TemplateDefinition[]{return templates;}

@@ -72,7 +72,7 @@ export function createServer() {
       const message = error instanceof Error ? error.message : 'internal_error';
       const status = message === 'UPLOAD_TOO_LARGE' ? 413
         : message === 'DOCUMENT_FILE_REQUIRED' ? 400
-        : /^(PDF|XLSX)_EXTRACTION_FAILED$/.test(message) || message === 'XLSX_EXTRACTION_UNAVAILABLE' || message.startsWith('UNSUPPORTED_DOCUMENT_TYPE:') ? 422
+        : /^(PDF|XLSX)_EXTRACTION_FAILED(?::|$)/.test(message) || message === 'PDF_OCR_REQUIRED' || message === 'XLSX_EXTRACTION_UNAVAILABLE' || message.startsWith('UNSUPPORTED_DOCUMENT_TYPE:') ? 422
         : message === 'AUTHENTICATION_REQUIRED' ? 401
         : message === 'ACTOR_ID_MISMATCH' || message === 'AUTHORIZATION_REQUIRED' || message === 'PROJECT_ACCESS_DENIED' ? 403
         : 500;

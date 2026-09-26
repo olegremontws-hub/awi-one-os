@@ -31,10 +31,13 @@ export async function getProjectContractPage(db:GateSqlClient,projectId:string,c
  const contractResult=await db.query('select id,document_id,contract_number,contract_date,currency,status,version,created_at from contracts where project_id=$1 and id=$2 limit 1',[projectId,contractId]);
  const row=contractResult.rows?.[0];
  if(!row)return{status:404 as const,body:'<!doctype html><html lang="ru"><meta charset="utf-8"><body>CONTRACT_NOT_FOUND</body></html>'};
- const [itemsResult,eventsResult,obligationsResult]=await Promise.all([
+ const [itemsResult,eventsResult,obligationsResult,evidenceResult]=await Promise.all([
   db.query('select id,code,name,quantity,unit,unit_price,amount,currency,evidence_ids from contract_items where contract_id=$1 order by coalesce(code,\'\'),name,id',[contractId]),
   db.query("select event_type,amount,currency,occurred_at,evidence_ids from contract_financial_events where project_id=$1 and contract_id=$2 and status='verified' order by occurred_at desc,id desc",[projectId,contractId]),
   db.query('select id,obligation_type,description,due_at,status,evidence_ids from obligations where contract_id=$1 order by due_at nulls last,id',[contractId]),
+  db.query(`select e.id,e.document_id,e.page_number,e.sheet_name,e.cell_range,e.quote,p.filename
+   from evidence e join project_documents p on p.id=e.document_id
+   where e.project_id=$1 order by e.created_at desc limit 200`,[projectId]),
  ]);
  const currency=String(row.currency??'RUB');
  const eventRows=(eventsResult.rows??[]) as Array<Record<string,unknown>>;
@@ -44,5 +47,6 @@ export async function getProjectContractPage(db:GateSqlClient,projectId:string,c
  const contract={id:String(row.id),number:row.contract_number?String(row.contract_number):undefined,date:asDate(row.contract_date),currency,status:String(row.status??'draft'),version:Number(row.version??1),documentId:row.document_id?String(row.document_id):undefined,committed,changes:sum('approved_change'),accepted:sum('accepted'),invoiced:sum('invoiced'),paid:sum('paid'),obligations:(obligationsResult.rows??[]).length};
  const movements=eventRows.map(e=>({type:String(e.event_type),amount:Number(e.amount??0),currency:String(e.currency??currency),occurredAt:asDate(e.occurred_at)??'',evidenceCount:arr(e.evidence_ids).length}));
  const obligations=(obligationsResult.rows??[]).map(o=>({id:String(o.id),type:String(o.obligation_type),description:String(o.description??''),dueAt:asDate(o.due_at),status:String(o.status??'planned'),evidenceCount:arr(o.evidence_ids).length}));
- return{status:200 as const,body:renderContractDetail({projectId,projectName:String(project.name??projectId),contract,items,movements,obligations})};
+ const evidence=(evidenceResult.rows??[]).map(e=>({id:String(e.id),documentId:String(e.document_id),filename:String(e.filename??''),quote:e.quote?String(e.quote):undefined,location:e.page_number?`стр. ${e.page_number}`:e.sheet_name?`${e.sheet_name}${e.cell_range?' · '+e.cell_range:''}`:'источник'}));
+ return{status:200 as const,body:renderContractDetail({projectId,projectName:String(project.name??projectId),contract,items,movements,obligations,evidence})};
 }

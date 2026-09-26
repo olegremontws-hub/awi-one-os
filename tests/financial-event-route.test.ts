@@ -8,7 +8,9 @@ class FinancialDb {
     query: async (sql: string, params?: unknown[]) => {
       this.calls.push({ sql, params });
       if (sql.includes('select id,event_type,amount,currency')) return { rows: [] };
-      if (sql.includes('select count(*)::int n from evidence')) return { rows: [{ n: 1 }] };
+      if (sql.includes('select id,document_id from evidence')) return { rows: [{ id: 'e1', document_id: 'document-1' }] };
+      if (sql.includes('select id from contracts')) return { rows: [{ id: 'contract-1' }] };
+      if (sql.includes('coalesce(sum(amount),0)')) return { rows: [{ event_type: 'accepted', amount: 2000 }] };
       if (sql.includes('insert into contract_financial_events')) {
         return { rows: [{ id: 'f1', event_type: 'accepted', amount: 1250, currency: 'RUB', occurred_at: '2026-09-26T20:00:00Z' }] };
       }
@@ -53,4 +55,44 @@ test('financial event HTTP route preserves service validation', async () => {
     eventType: 'paid', amount: 0, currency: 'RUB', evidenceIds: ['e1'], actorId: 'human-1',
   }, baseDeps(db)), /INVALID_FINANCIAL_AMOUNT/);
   assert.equal(db.calls.length, 0);
+});
+
+test('invoice ordering is checked inside the selected contract', async () => {
+  const db = new FinancialDb();
+  await routeProjectRequest('POST', '/v1/projects/p1/financial-events', {
+    eventType: 'invoiced', amount: 1000, currency: 'RUB', evidenceIds: ['e1'],
+    actorId: 'human-1', correlationId: 'c2', contractId: 'contract-1',
+  }, baseDeps(db));
+  const totals = db.calls.find(call => call.sql.includes('coalesce(sum(amount),0)'));
+  assert.match(totals?.sql ?? '', /contract_id=\$3/);
+  assert.deepEqual(totals?.params, ['p1', 'RUB', 'contract-1']);
+});
+
+test('financial movement rejects a contract outside the project scope', async () => {
+  class MissingContractDb extends FinancialDb {
+    override client = {
+      query: async (sql: string, params?: unknown[]) => {
+        this.calls.push({ sql, params });
+        if (sql.includes('select id,event_type,amount,currency')) return { rows: [] };
+        if (sql.includes('select id,document_id from evidence')) return { rows: [{ id: 'e1', document_id: 'document-1' }] };
+        return { rows: [] };
+      },
+      release: () => this.calls.push({ sql: 'RELEASE' }),
+    };
+  }
+  const db = new MissingContractDb();
+  await assert.rejects(() => routeProjectRequest('POST', '/v1/projects/p1/financial-events', {
+    eventType: 'accepted', amount: 1000, currency: 'RUB', evidenceIds: ['e1'],
+    actorId: 'human-1', correlationId: 'c3', contractId: 'foreign-contract',
+  }, baseDeps(db)), /FINANCIAL_CONTRACT_NOT_FOUND/);
+  assert.equal(db.calls.some(call => call.sql === 'ROLLBACK'), true);
+});
+
+test('financial movement source document must own selected Evidence', async () => {
+  const db = new FinancialDb();
+  await assert.rejects(() => routeProjectRequest('POST', '/v1/projects/p1/financial-events', {
+    eventType: 'accepted', amount: 1000, currency: 'RUB', evidenceIds: ['e1'],
+    actorId: 'human-1', correlationId: 'c4', sourceDocumentId: 'foreign-document',
+  }, baseDeps(db)), /FINANCIAL_SOURCE_DOCUMENT_MISMATCH/);
+  assert.equal(db.calls.some(call => call.sql === 'ROLLBACK'), true);
 });

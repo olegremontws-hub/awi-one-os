@@ -41,10 +41,23 @@ export async function recordFinancialEvent(db:GateSqlClient,input:FinancialEvent
     }
 
     const evidence=await client.query(
-      'select count(*)::int n from evidence where project_id=$1 and id = any($2::uuid[])',
+      'select id,document_id from evidence where project_id=$1 and id = any($2::uuid[])',
       [input.projectId,input.evidenceIds],
     );
-    if(Number(evidence.rows?.[0]?.n??0)!==new Set(input.evidenceIds).size)throw new Error('FINANCIAL_EVIDENCE_NOT_FOUND');
+    if((evidence.rows??[]).length!==new Set(input.evidenceIds).size)throw new Error('FINANCIAL_EVIDENCE_NOT_FOUND');
+    if(input.sourceDocumentId&&!(evidence.rows??[]).some(row=>String(row.document_id)===input.sourceDocumentId))throw new Error('FINANCIAL_SOURCE_DOCUMENT_MISMATCH');
+
+    if(input.contractId){
+      const contract=await client.query('select id from contracts where id=$1 and project_id=$2 limit 1',[input.contractId,input.projectId]);
+      if(!(contract.rows??[]).length)throw new Error('FINANCIAL_CONTRACT_NOT_FOUND');
+    }
+    if(input.contractItemId){
+      const item=await client.query(
+        'select ci.id from contract_items ci join contracts c on c.id=ci.contract_id where ci.id=$1 and c.project_id=$2 and ($3::uuid is null or ci.contract_id=$3) limit 1',
+        [input.contractItemId,input.projectId,input.contractId??null],
+      );
+      if(!(item.rows??[]).length)throw new Error('FINANCIAL_CONTRACT_ITEM_NOT_FOUND');
+    }
 
     if(input.eventType==='approved_change'){
       const gate=await client.query(
@@ -56,8 +69,8 @@ export async function recordFinancialEvent(db:GateSqlClient,input:FinancialEvent
 
     if(input.eventType==='invoiced'||input.eventType==='paid'){
       const totals=await client.query(
-        "select event_type,coalesce(sum(amount),0) amount from contract_financial_events where project_id=$1 and currency=$2 and status='verified' and event_type in ('accepted','invoiced','paid') group by event_type",
-        [input.projectId,input.currency],
+        "select event_type,coalesce(sum(amount),0) amount from contract_financial_events where project_id=$1 and currency=$2 and ($3::uuid is null or contract_id=$3) and status='verified' and event_type in ('accepted','invoiced','paid') group by event_type",
+        [input.projectId,input.currency,input.contractId??null],
       );
       const total=(kind:FinancialEventType)=>Number((totals.rows??[]).find(r=>r.event_type===kind)?.amount??0);
       if(input.eventType==='invoiced'&&total('invoiced')+input.amount>total('accepted'))throw new Error('INVOICED_EXCEEDS_ACCEPTED');

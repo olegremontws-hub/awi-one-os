@@ -32,6 +32,7 @@ function detailDb(found=true){
   if(sql.startsWith('select id,code,name'))return{rows:[{id:'ci1',code:'A-01',name:'Оборудование',quantity:'2',unit:'шт',unit_price:'500000',amount:'1000000',currency:'RUB',evidence_ids:['e1']}]};
   if(sql.startsWith('select event_type,amount'))return{rows:[{event_type:'accepted',amount:'900000',currency:'RUB',occurred_at:'2026-09-20',evidence_ids:['e2']},{event_type:'invoiced',amount:'800000',currency:'RUB',occurred_at:'2026-09-21',evidence_ids:['e3']},{event_type:'paid',amount:'700000',currency:'RUB',occurred_at:'2026-09-22',evidence_ids:['e4']}]};
   if(sql.startsWith('select id,obligation_type'))return{rows:[{id:'o1',obligation_type:'delivery',description:'Поставить оборудование',due_at:'2026-10-01',status:'planned',evidence_ids:['e5']}]};
+  if(sql.includes('from evidence e join project_documents'))return{rows:[{id:'e6',document_id:'d2',filename:'act.pdf',page_number:3,quote:'Работы приняты'}]};
   throw new Error('unexpected query '+sql);
  }};
 }
@@ -46,6 +47,10 @@ test('Contract detail renders items financial events obligations and Evidence co
  assert.match(body,/700 000/);
  assert.match(body,/Поставить оборудование/);
  assert.match(body,/1 Evidence/);
+ assert.match(body,/Зарегистрировать движение/);
+ assert.match(body,/act\.pdf · стр\. 3/);
+ assert.match(body,/\/v1\/projects\/\$\{projectId\}\/financial-events/);
+ assert.match(body,/contractId/);
 });
 
 test('Contract detail returns explicit 404 for unknown contract',async()=>{

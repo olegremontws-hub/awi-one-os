@@ -10,6 +10,7 @@ import { getRoundTableState } from './round-table-query.js';
 import { getProject, changeProjectStatus } from './project-lifecycle.js';
 import { createDurableProject } from './project-create.js';
 import { recordFinancialEvent, type FinancialEventType } from './financial-event-service.js';
+import { generateProjectDocument, type GeneratedDocumentFieldInput } from './generated-document-service.js';
 
 export type HttpDependencies = {
   provider: ModelProvider;

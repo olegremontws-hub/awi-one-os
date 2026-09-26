@@ -5,6 +5,7 @@ import { handleRoundTableIntake } from './round-table-handler.js';
 import { decideHumanGate } from './human-gate-service.js';
 import { getProjectHistory } from './project-history.js';
 import type { ObjectStorage } from '../../document-service/src/storage.js';
+import type { OcrProvider } from '../../document-service/src/ingestion-gateway.js';
 import { uploadAndRunVS001 } from './upload-handler.js';
 import { getRoundTableState } from './round-table-query.js';
 import { getProject, changeProjectStatus } from './project-lifecycle.js';
@@ -17,6 +18,7 @@ export type HttpDependencies = {
   repository: VS001Repository;
   db: GateSqlClient;
   storage?: ObjectStorage;
+  ocrProvider?: OcrProvider;
 };
 
 export async function routeProjectRequest(method: string, path: string, body: Record<string, unknown>, deps: HttpDependencies) {
@@ -39,7 +41,7 @@ export async function routeProjectRequest(method: string, path: string, body: Re
       mimeType: String(body.mimeType ?? 'application/octet-stream'),
       bytes: Buffer.from(String(body.base64 ?? ''), 'base64'),
       correlationId: String(body.correlationId ?? crypto.randomUUID()),
-      provider: deps.provider, repository: deps.repository, db: deps.db, storage: deps.storage,
+      provider: deps.provider, repository: deps.repository, db: deps.db, storage: deps.storage, ocrProvider: deps.ocrProvider,
     })};
   }
 

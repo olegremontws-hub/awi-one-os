@@ -34,7 +34,11 @@ export async function recordFinancialEvent(db:GateSqlClient,input:FinancialEvent
       'select id,event_type,amount,currency from contract_financial_events where project_id=$1 and correlation_id=$2 limit 1',
       [input.projectId,input.correlationId],
     );
-    if((duplicate.rows??[]).length)return{...(duplicate.rows![0]),duplicate:true};
+    if((duplicate.rows??[]).length){
+      const row=duplicate.rows![0]!;
+      if(String(row.event_type)!==input.eventType||Number(row.amount)!==input.amount||String(row.currency)!==input.currency)throw new Error('IDEMPOTENCY_CONFLICT');
+      return{...row,duplicate:true};
+    }
 
     const evidence=await client.query(
       'select count(*)::int n from evidence where project_id=$1 and id = any($2::uuid[])',

@@ -65,6 +65,24 @@ npm run start:project-service
 npm run qa:client:http
 ```
 
+## Local product demo
+
+The repository includes an isolated demo stack with PostgreSQL, migrations, seeded Evidence-backed project data, local object storage and the deterministic demo model. It binds the application to localhost only and is not a production configuration.
+
+Requirements: Docker Desktop with Docker Compose v2.
+
+```sh
+npm run demo:up
+```
+
+Open:
+
+`http://127.0.0.1:3001/app/projects/10000000-0000-4000-8000-000000000001`
+
+The first build can take several minutes because it verifies the image. Stop the stack with `npm run demo:down`. To remove the demo database and start again from clean seeded data, run `npm run demo:reset` and then `npm run demo:up`.
+
+The demo deliberately uses `NODE_ENV=ci`, synthetic local identity and the deterministic model provider. Its port is bound only to `127.0.0.1`; do not expose this profile to a network or use it for production.
+
 ## Known release gaps
 
 This branch is not a production deployment and should not be described as one. Before production exposure it still needs a real identity provider/token verifier and deployment/secret-management configuration. XLSX parsing remains intentionally unavailable. The canonical agent registry in this repository is still a VS-001 subset rather than the full organizational registry.

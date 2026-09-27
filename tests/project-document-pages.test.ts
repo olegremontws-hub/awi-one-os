@@ -38,6 +38,7 @@ function detailDb(found=true){
       {id:'f2',fact_type:'other',value:'not this doc',unit:null,confidence:'0.8',status:'extracted',evidence_ids:['other-evidence']},
     ]};
     if(sql.startsWith('select id,relation_type'))return{rows:[{id:'r1',relation_type:'supersedes',other_document_id:'d0',direction:'from'}]};
+    if(sql.startsWith('select id,decision_id,status from human_gates'))return{rows:[]};
     throw new Error('unexpected query '+sql);
   }};
 }
@@ -53,6 +54,7 @@ test('Document analysis page shows source Evidence, linked facts and relations',
   assert.match(page.body,/Human Review/);
   assert.match(page.body,/id="evidence-e1"/);
   assert.match(page.body,/\/v1\/projects\/p1\/documents\/d1\/download/);
+  assert.match(page.body,/documents\/\$\{documentId\}\/review/);
 });
 
 test('Document analysis page returns explicit 404 for unknown document',async()=>{

@@ -132,6 +132,7 @@ export function createServer() {
       const message = error instanceof Error ? error.message : 'internal_error';
       const status = message === 'UPLOAD_TOO_LARGE' || message === 'REQUEST_BODY_TOO_LARGE' ? 413
         : message === 'DOCUMENT_FILE_REQUIRED' || message === 'INVALID_JSON_BODY' || message === 'INVALID_CONTENT_LENGTH' ? 400
+        : message === 'DOCUMENT_NOT_FOUND' ? 404
         : /^(PDF|XLSX)_EXTRACTION_FAILED(?::|$)/.test(message) || message === 'PDF_OCR_REQUIRED' || message === 'OCR_PROVIDER_UNAVAILABLE' || message === 'OCR_PROVIDER_NOT_READY' || message === 'OCR_RESULT_INVALID' || message === 'OCR_RESULT_TOO_LARGE' || message === 'OCR_NO_TEXT' || message === 'XLSX_EXTRACTION_UNAVAILABLE' || message.startsWith('UNSUPPORTED_DOCUMENT_TYPE:') ? 422
         : message === 'AUTHENTICATION_REQUIRED' || message.startsWith('JWT_') || message.startsWith('JWKS_') ? 401
         : message === 'ACTOR_ID_MISMATCH' || message === 'AUTHORIZATION_REQUIRED' || message === 'PROJECT_ACCESS_DENIED' ? 403

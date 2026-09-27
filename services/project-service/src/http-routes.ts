@@ -12,6 +12,7 @@ import { getProject, changeProjectStatus } from './project-lifecycle.js';
 import { createDurableProject } from './project-create.js';
 import { recordFinancialEvent, type FinancialEventType } from './financial-event-service.js';
 import { generateProjectDocument, type GeneratedDocumentFieldInput } from './generated-document-service.js';
+import { requestDocumentReview } from './document-review-service.js';
 
 export type HttpDependencies = {
   provider: ModelProvider;
@@ -92,6 +93,14 @@ export async function routeProjectRequest(method: string, path: string, body: Re
   const history = path.match(/^\/v1\/projects\/([^/]+)\/history$/);
   if (method === 'GET' && history) {
     return { status: 200, body: await getProjectHistory(deps.db, history[1]!) };
+  }
+
+  const documentReview = path.match(/^\/v1\/projects\/([^/]+)\/documents\/([^/]+)\/review$/);
+  if (method === 'POST' && documentReview) {
+    return { status: 201, body: await requestDocumentReview(deps.db, {
+      projectId: documentReview[1]!, documentId: documentReview[2]!, actorId: String(body.actorId ?? ''),
+      correlationId: String(body.correlationId ?? crypto.randomUUID()),
+    }) };
   }
 
   const financialEvent = path.match(/^\/v1\/projects\/([^/]+)\/financial-events$/);

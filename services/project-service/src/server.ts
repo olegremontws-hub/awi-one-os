@@ -8,19 +8,24 @@ import { objectStorageFromEnv } from '../../document-service/src/s3-storage.js';
 import { readMultipartDocument } from './multipart.js';
 import { validateRuntimeEnv } from './env.js';
 import { uploadAndRunVS001 } from './upload-handler.js';
-import { authContextFromHeaders, authorize, authorizeProjectScope } from './auth.js';
-
-async function readJson(req: http.IncomingMessage) {
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as Record<string, unknown>;
-}
+import { authContextFromRequest, authorize, authorizeProjectScope, scopedProjectIdFromPath } from './auth.js';
+import { jwtVerifierFromEnv } from './jwt-auth.js';
+import { ocrProviderFromEnv } from '../../document-service/src/http-ocr-provider.js';
+import { getProjectRoundTablePage } from './round-table-page.js';
+import { getProjectDocumentsPage, getProjectDocumentAnalysisPage } from './project-document-pages.js';
+import { getProjectEstimatePage } from './project-estimate-page.js';
+import { getProjectContractsPage, getProjectContractPage } from './project-contract-pages.js';
+import { getProjectHistoryPage } from './project-history-page.js';
+import { getProjectDocumentFactoryPage } from './project-document-factory-page.js';
+import { readJsonBody } from './json-body.js';
+import { getProjectDocumentDownload } from './project-document-download.js';
 
 export function createServer() {
   validateRuntimeEnv();
   const db = createPostgresPool();
   const storage = process.env.AWI_S3_BUCKET ? objectStorageFromEnv() : new LocalObjectStorage();
-  const deps = { provider: runtimeProviderFromEnv(), repository: new PostgresVS001Repository(db), db, storage };
+  const jwtVerifier = jwtVerifierFromEnv();
+  const deps = { provider: runtimeProviderFromEnv(), repository: new PostgresVS001Repository(db), db, storage, ocrProvider: ocrProviderFromEnv() };
   return http.createServer(async (req, res) => {
     try {
       if (req.method === 'GET' && req.url === '/health') {
@@ -41,18 +46,74 @@ export function createServer() {
             if (probeWritten) await storage.delete(probeKey);
           }
           if (!(await deps.provider.ready())) throw new Error('MODEL_PROVIDER_NOT_READY');
-          res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ status: 'ready', checks: { database: 'ok', storage: 'ok', modelProvider: 'ok' } }));
+          const ocr = deps.ocrProvider ? (await deps.ocrProvider.ready() ? 'ok' : 'not_ready') : 'disabled';
+          if (ocr === 'not_ready') throw new Error('OCR_PROVIDER_NOT_READY');
+          res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ status: 'ready', checks: { database: 'ok', storage: 'ok', modelProvider: 'ok', ocr } }));
         } catch {
           res.writeHead(503, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ status: 'not_ready' }));
         }
       }
-      const auth = authContextFromHeaders(req.headers);
+      const auth = await authContextFromRequest(req.headers, process.env, jwtVerifier);
       const path = req.url ?? '/';
       const isRead = req.method === 'GET';
       const isDecision = /\/decisions\/[^/]+\/(approve|reject)$/.test(path);
       authorize(auth, isDecision ? 'decision:decide' : isRead ? 'project:read' : 'project:write');
-      const scopedProject = path.match(/^\/v1\/projects\/([^/]+)/);
-      if (scopedProject) await authorizeProjectScope(db, auth, scopedProject[1]!);
+      const scopedProjectId = scopedProjectIdFromPath(path);
+      if (scopedProjectId) await authorizeProjectScope(db, auth, scopedProjectId);
+      const appHistory = path.match(/^\/app\/projects\/([^/?#]+)\/history\/?$/);
+      if (req.method === 'GET' && appHistory) {
+        const page = await getProjectHistoryPage(db, appHistory[1]!);
+        res.writeHead(page.status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+        return res.end(page.body);
+      }
+      const appDocumentFactory = path.match(/^\/app\/projects\/([^/?#]+)\/document-factory\/?$/);
+      if (req.method === 'GET' && appDocumentFactory) {
+        const page = await getProjectDocumentFactoryPage(db, appDocumentFactory[1]!);
+        res.writeHead(page.status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+        return res.end(page.body);
+      }
+      const appContract = path.match(/^\/app\/projects\/([^/?#]+)\/contracts\/([^/?#]+)\/?$/);
+      if (req.method === 'GET' && appContract) {
+        const page = await getProjectContractPage(db, appContract[1]!, appContract[2]!);
+        res.writeHead(page.status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+        return res.end(page.body);
+      }
+      const appContracts = path.match(/^\/app\/projects\/([^/?#]+)\/contracts\/?$/);
+      if (req.method === 'GET' && appContracts) {
+        const page = await getProjectContractsPage(db, appContracts[1]!);
+        res.writeHead(page.status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+        return res.end(page.body);
+      }
+      const appEstimate = path.match(/^\/app\/projects\/([^/?#]+)\/estimate\/?$/);
+      if (req.method === 'GET' && appEstimate) {
+        const page = await getProjectEstimatePage(db, appEstimate[1]!);
+        res.writeHead(page.status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+        return res.end(page.body);
+      }
+      const documentDownload = path.match(/^\/v1\/projects\/([^/?#]+)\/documents\/([^/?#]+)\/download\/?$/);
+      if (req.method === 'GET' && documentDownload) {
+        const download = await getProjectDocumentDownload(db, storage, documentDownload[1]!, documentDownload[2]!);
+        res.writeHead(download.status, download.headers);
+        return res.end(download.body);
+      }
+      const appDocument = path.match(/^\/app\/projects\/([^/?#]+)\/documents\/([^/?#]+)\/?$/);
+      if (req.method === 'GET' && appDocument) {
+        const page = await getProjectDocumentAnalysisPage(db, appDocument[1]!, appDocument[2]!);
+        res.writeHead(page.status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+        return res.end(page.body);
+      }
+      const appDocuments = path.match(/^\/app\/projects\/([^/?#]+)\/documents\/?$/);
+      if (req.method === 'GET' && appDocuments) {
+        const page = await getProjectDocumentsPage(db, appDocuments[1]!);
+        res.writeHead(page.status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+        return res.end(page.body);
+      }
+      const appProject = path.match(/^\/app\/projects\/([^/?#]+)\/?$/);
+      if (req.method === 'GET' && appProject) {
+        const page = await getProjectRoundTablePage(db, appProject[1]!);
+        res.writeHead(page.status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+        return res.end(page.body);
+      }
       const upload = path.match(/^\/v1\/projects\/([^/]+)\/documents$/);
       if (req.method === 'POST' && upload && (req.headers['content-type'] ?? '').startsWith('multipart/form-data')) {
         const file = await readMultipartDocument(req);
@@ -60,19 +121,20 @@ export function createServer() {
           projectId: upload[1]!, filename: file.filename, mimeType: file.mimeType,
           bytes: file.bytes,
           correlationId: file.correlationId ?? crypto.randomUUID(),
-          provider: deps.provider, repository: deps.repository, db: deps.db, storage: deps.storage,
+          provider: deps.provider, repository: deps.repository, db: deps.db, storage: deps.storage, ocrProvider: deps.ocrProvider,
         });
         res.writeHead(201, { 'content-type': 'application/json' }); return res.end(JSON.stringify(result));
       }
-      const body = req.method === 'GET' ? {} : await readJson(req);
+      const body = req.method === 'GET' ? {} : await readJsonBody(req);
       const result = await routeProjectRequest(req.method ?? 'GET', req.url ?? '/', { ...body, actorId: auth.actorId }, deps);
       res.writeHead(result.status, { 'content-type': 'application/json' }); res.end(JSON.stringify(result.body));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'internal_error';
-      const status = message === 'UPLOAD_TOO_LARGE' ? 413
-        : message === 'DOCUMENT_FILE_REQUIRED' ? 400
-        : /^(PDF|XLSX)_EXTRACTION_FAILED$/.test(message) || message === 'XLSX_EXTRACTION_UNAVAILABLE' || message.startsWith('UNSUPPORTED_DOCUMENT_TYPE:') ? 422
-        : message === 'AUTHENTICATION_REQUIRED' ? 401
+      const status = message === 'UPLOAD_TOO_LARGE' || message === 'REQUEST_BODY_TOO_LARGE' ? 413
+        : message === 'DOCUMENT_FILE_REQUIRED' || message === 'INVALID_JSON_BODY' || message === 'INVALID_CONTENT_LENGTH' ? 400
+        : message === 'DOCUMENT_NOT_FOUND' ? 404
+        : /^(PDF|XLSX)_EXTRACTION_FAILED(?::|$)/.test(message) || message === 'PDF_OCR_REQUIRED' || message === 'OCR_PROVIDER_UNAVAILABLE' || message === 'OCR_PROVIDER_NOT_READY' || message === 'OCR_RESULT_INVALID' || message === 'OCR_RESULT_TOO_LARGE' || message === 'OCR_NO_TEXT' || message === 'XLSX_EXTRACTION_UNAVAILABLE' || message.startsWith('UNSUPPORTED_DOCUMENT_TYPE:') ? 422
+        : message === 'AUTHENTICATION_REQUIRED' || message.startsWith('JWT_') || message.startsWith('JWKS_') ? 401
         : message === 'ACTOR_ID_MISMATCH' || message === 'AUTHORIZATION_REQUIRED' || message === 'PROJECT_ACCESS_DENIED' ? 403
         : 500;
       res.writeHead(status, { 'content-type': 'application/json' });

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { authorize, authorizeProjectScope } from '../services/project-service/src/auth.js';
+import { authorize, authorizeProjectScope, scopedProjectIdFromPath } from '../services/project-service/src/auth.js';
 
 test('project role does not grant access without project membership', async () => {
   const auth = { actorId: 'user-1', roles: ['project-member'] };
@@ -18,4 +18,10 @@ test('project membership grants scope after role authorization', async () => {
 
 test('reader cannot mutate even with project scope', () => {
   assert.throws(() => authorize({ actorId: 'user-1', roles: ['project-reader'] }, 'project:write'), /AUTHORIZATION_REQUIRED/);
+});
+
+test('project scope matcher covers both API and AWI ONE app routes',()=>{
+  assert.equal(scopedProjectIdFromPath('/v1/projects/p1/round-table'),'p1');
+  assert.equal(scopedProjectIdFromPath('/app/projects/p2'),'p2');
+  assert.equal(scopedProjectIdFromPath('/health'),undefined);
 });

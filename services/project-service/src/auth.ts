@@ -8,10 +8,11 @@ export function authContextFromHeaders(headers: Record<string, string | string[]
   const roles = headers['x-awi-roles'];
   const actorId = Array.isArray(actor) ? actor[0] : actor;
   const roleText = Array.isArray(roles) ? roles[0] : roles;
-  if (actorId?.trim()) {
+  const testRuntime = env.NODE_ENV === 'ci' || env.NODE_ENV === 'test';
+  if (actorId?.trim() && (testRuntime || env.AWI_AUTH_MODE === 'trusted-headers')) {
     return { actorId: actorId.trim(), roles: String(roleText ?? '').split(',').map(x => x.trim()).filter(Boolean) };
   }
-  if (env.NODE_ENV === 'ci' || env.NODE_ENV === 'test') return { actorId: 'qa-system', roles: ['system-test'] };
+  if (testRuntime) return { actorId: 'qa-system', roles: ['system-test'] };
   throw new Error('AUTHENTICATION_REQUIRED');
 }
 
@@ -47,4 +48,23 @@ export async function authorizeProjectScope(
     [projectId, auth.actorId],
   );
   if (!(result.rows ?? []).length) throw new Error('PROJECT_ACCESS_DENIED');
+}
+
+export function scopedProjectIdFromPath(path:string){
+  return path.match(/^\/(?:v1|app)\/projects\/([^/?#]+)/)?.[1];
+}
+
+export interface ExternalIdentityVerifier {
+  verifyAuthorization(headers: Record<string,string|string[]|undefined>): Promise<AuthContext>;
+}
+
+export async function authContextFromRequest(
+  headers: Record<string,string|string[]|undefined>,
+  env: NodeJS.ProcessEnv = process.env,
+  verifier?: ExternalIdentityVerifier,
+): Promise<AuthContext> {
+  if (env.NODE_ENV === 'ci' || env.NODE_ENV === 'test') return authContextFromHeaders(headers, env);
+  if (env.AWI_AUTH_MODE === 'trusted-headers') return authContextFromHeaders(headers, env);
+  if (env.AWI_AUTH_MODE === 'jwt' && verifier) return verifier.verifyAuthorization(headers);
+  throw new Error('AUTHENTICATION_REQUIRED');
 }

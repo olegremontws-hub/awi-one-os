@@ -5,7 +5,7 @@ export interface ClientTestDriver {
   health(): Promise<boolean>;
   createProject(): Promise<{id:string}>;
   uploadDocument(projectId:string): Promise<{document?:{documentId?:string;id?:string};decision?:unknown;duplicate?:boolean}>;
-  roundTable(projectId:string): Promise<{decisionCards?:unknown[];timeline?:unknown[]}>;
+  roundTable(projectId:string): Promise<{decisionCards?:unknown[];timeline?:unknown[];documents?:unknown[];attention?:unknown[]}>;
   history(projectId:string): Promise<unknown[]>;
 }
 
@@ -16,7 +16,7 @@ export async function runClientJourney(driver:ClientTestDriver):Promise<JourneyR
   const project=await driver.createProject(); steps.push({name:'create_project',ok:Boolean(project.id)});
   const upload=await driver.uploadDocument(project.id); steps.push({name:'upload_and_ai_intake',ok:Boolean(upload.document)});
   const table=await driver.roundTable(project.id);
-  steps.push({name:'round_table_durable_state',ok:Array.isArray(table.decisionCards)&&Array.isArray(table.timeline)});
+  steps.push({name:'round_table_durable_state',ok:Array.isArray(table.decisionCards)&&Array.isArray(table.timeline)&&Array.isArray(table.documents)&&table.documents.length>0&&Array.isArray(table.attention)});
   const history=await driver.history(project.id); steps.push({name:'causal_history',ok:Array.isArray(history)});
   return {agentId:'QA-CLIENT-001',passed:steps.every(s=>s.ok),steps};
 }
